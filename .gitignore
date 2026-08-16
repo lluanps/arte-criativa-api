@@ -1,0 +1,45 @@
+# =========================================================
+# Segredos e variáveis de ambiente — NUNCA versionar
+# =========================================================
+.env
+.env.*
+!.env*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*credentials*.json
+*service-account*.json
+secrets/
+docker-compose.override.yml
+
+# =========================================================
+# Maven
+# =========================================================
+target/
+*.log
+*.class
+hs_err_pid*.log
+replay_pid*.log
+.mvn/wrapper/maven-wrapper.jar
+
+# =========================================================
+# IDEs
+# =========================================================
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+*.launch
+.metadata/
+*.code-workspace
+
+# =========================================================
+# SO
+# =========================================================
+.DS_Store
+Thumbs.db
+desktop.ini

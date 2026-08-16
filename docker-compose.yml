@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16
+    container_name: arte-criativa-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: arte_criativa
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      # 5433 no host: evita conflito com um Postgres nativo que já ocupe a 5432
+      - "5433:5432"
+    volumes:
+      - arte_criativa_db_data:/var/lib/postgresql/data
+
+volumes:
+  arte_criativa_db_data:
