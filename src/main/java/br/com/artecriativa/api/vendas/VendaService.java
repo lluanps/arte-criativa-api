@@ -1,0 +1,108 @@
+package br.com.artecriativa.api.vendas;
+
+import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
+import br.com.artecriativa.api.estoque.MotivoMovimentacaoProduto;
+import br.com.artecriativa.api.estoque.MovimentacaoProduto;
+import br.com.artecriativa.api.estoque.MovimentacaoProdutoRepository;
+import br.com.artecriativa.api.estoque.Produto;
+import br.com.artecriativa.api.estoque.ProdutoRepository;
+import br.com.artecriativa.api.estoque.TipoMovimentacao;
+import br.com.artecriativa.api.financeiro.LancamentoFinanceiro;
+import br.com.artecriativa.api.financeiro.LancamentoFinanceiroRepository;
+import br.com.artecriativa.api.financeiro.OrigemLancamento;
+import br.com.artecriativa.api.financeiro.TipoLancamento;
+import br.com.artecriativa.api.vendas.dto.VendaItemRequest;
+import br.com.artecriativa.api.vendas.dto.VendaRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Registra uma venda: dá baixa no estoque de cada produto vendido (com movimentação de
+ * saída por VENDA), calcula o valor total e gera um lançamento financeiro de receita
+ * correspondente.
+ */
+@Service
+@RequiredArgsConstructor
+public class VendaService {
+
+    private final VendaRepository vendaRepository;
+    private final ProdutoRepository produtoRepository;
+    private final MovimentacaoProdutoRepository movimentacaoProdutoRepository;
+    private final LancamentoFinanceiroRepository lancamentoFinanceiroRepository;
+
+    @Transactional(readOnly = true)
+    public List<Venda> listarTodas() {
+        return vendaRepository.findAllByOrderByDataVendaDesc();
+    }
+
+    @Transactional(readOnly = true)
+    public Venda buscarPorId(Long id) {
+        return vendaRepository.findById(id)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Venda não encontrada: " + id));
+    }
+
+    @Transactional
+    public Venda registrar(VendaRequest request) {
+        List<VendaItem> itens = new ArrayList<>();
+        BigDecimal valorTotal = BigDecimal.ZERO;
+
+        for (VendaItemRequest itemRequest : request.itens()) {
+            Produto produto = produtoRepository.findById(itemRequest.produtoId())
+                    .orElseThrow(() -> new RecursoNaoEncontradoException(
+                            "Produto não encontrado: " + itemRequest.produtoId()));
+
+            BigDecimal novoEstoque = produto.getEstoqueAtual().subtract(itemRequest.quantidade());
+            if (novoEstoque.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalStateException(
+                        "Estoque insuficiente do produto '%s'. Disponível: %s, solicitado: %s"
+                                .formatted(produto.getNome(), produto.getEstoqueAtual(), itemRequest.quantidade()));
+            }
+
+            BigDecimal precoUnitario = itemRequest.precoUnitario() != null
+                    ? itemRequest.precoUnitario()
+                    : produto.getPrecoVenda();
+
+            produto.setEstoqueAtual(novoEstoque);
+            produtoRepository.save(produto);
+
+            MovimentacaoProduto movimentacao = new MovimentacaoProduto();
+            movimentacao.setProduto(produto);
+            movimentacao.setTipo(TipoMovimentacao.SAIDA);
+            movimentacao.setMotivo(MotivoMovimentacaoProduto.VENDA);
+            movimentacao.setQuantidade(itemRequest.quantidade());
+            movimentacao.setObservacao("Venda" + (request.clienteNome() != null ? " para " + request.clienteNome() : ""));
+            movimentacaoProdutoRepository.save(movimentacao);
+
+            VendaItem item = new VendaItem();
+            item.setProduto(produto);
+            item.setQuantidade(itemRequest.quantidade());
+            item.setPrecoUnitario(precoUnitario);
+            itens.add(item);
+
+            valorTotal = valorTotal.add(item.getSubtotal());
+        }
+
+        Venda venda = new Venda();
+        venda.setClienteNome(request.clienteNome());
+        venda.setCanal(request.canal());
+        venda.setValorTotal(valorTotal);
+        venda.adicionarItens(itens);
+        venda = vendaRepository.save(venda);
+
+        LancamentoFinanceiro lancamento = new LancamentoFinanceiro();
+        lancamento.setTipo(TipoLancamento.RECEITA);
+        lancamento.setCategoria("Venda");
+        lancamento.setValor(valorTotal);
+        lancamento.setDescricao("Venda #" + venda.getId() + (request.clienteNome() != null ? " - " + request.clienteNome() : ""));
+        lancamento.setOrigem(OrigemLancamento.VENDA);
+        lancamento.setOrigemId(venda.getId());
+        lancamentoFinanceiroRepository.save(lancamento);
+
+        return venda;
+    }
+}
