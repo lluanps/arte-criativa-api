@@ -24,6 +24,9 @@ app:
     # Troque via env var em produção — precisa de pelo menos 256 bits (32+ caracteres).
     secret: ${JWT_SECRET:arte-criativa-dev-secret-troque-em-producao-0123456789abcdef}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+  cors:
+    # Origens do front autorizadas a chamar a API do browser (separadas por vírgula).
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
 
 logging:
   level:

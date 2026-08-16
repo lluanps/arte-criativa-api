@@ -47,7 +47,7 @@ mvn spring-boot:run
 
 A API usa as variáveis `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` (com defaults apontando pro Postgres do `docker-compose.yml`, na porta 5433). Pra produção, aponte essas variáveis pro Postgres gerenciado (Supabase, Neon, Railway etc.).
 
-Também usa `JWT_SECRET` (tem um default só pra dev — **troque em produção**, precisa de 32+ caracteres) e `JWT_EXPIRATION_MINUTES` (default 1440).
+Também usa `JWT_SECRET` (tem um default só pra dev — **troque em produção**, precisa de 32+ caracteres), `JWT_EXPIRATION_MINUTES` (default 1440) e `CORS_ALLOWED_ORIGINS` (default `http://localhost:3000`, separadas por vírgula se precisar de mais de uma origem — ex: preview deploy + produção do front).
 
 ## Endpoints
 
