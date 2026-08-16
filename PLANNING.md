@@ -31,7 +31,7 @@ Ver `src/main/resources/db/migration/V1__schema_inicial.sql` — schema completo
 - [x] **Fase 1** — Módulo Estoque: CRUD de produtos/matérias-primas + movimentações
 - [x] **Fase 2** — Módulo Receitas/Produção (liga com Estoque) — testado ponta a ponta
 - [x] **Fase 3** — Módulo Vendas (liga com Estoque e Financeiro)
-- [ ] **Fase 4** — Módulo Financeiro + dashboard
+- [x] **Fase 4** — Módulo Financeiro + dashboard
 - [ ] **Fase 5** — Autenticação (login) + Módulo Tutoriais
 
 ## Como rodar localmente
@@ -54,3 +54,6 @@ A API usa as variáveis `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
 - `/api/receitas`, `/api/receitas/produto/{produtoId}`
 - `/api/producoes`, `/api/producoes/produto/{produtoId}`
 - `/api/vendas`
+- `/api/lancamentos-financeiros` (filtro opcional `?inicio=&fim=`)
+- `/api/contas` (filtro opcional `?tipo=PAGAR|RECEBER`), `/api/contas/{id}/pagar`
+- `/api/financeiro/dashboard` (opcional `?inicio=&fim=`, default mês corrente)
