@@ -1,0 +1,22 @@
+package br.com.artecriativa.api.vendas;
+
+import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface VendaRepository extends JpaRepository<Venda, Long> {
+
+    // Sobrescritas com @EntityGraph pra trazer `itens` (e itens.produto, que o
+    // VendaResponse navega) na mesma query. Necessário porque open-in-view é false —
+    // o response é montado no controller, fora da transação do service, e um
+    // fetchgraph implicitamente vira LAZY toda associação que não é listada aqui,
+    // mesmo as @ManyToOne que por padrão são EAGER.
+    @EntityGraph(attributePaths = {"itens", "itens.produto"})
+    List<Venda> findAllByOrderByDataVendaDesc();
+
+    @Override
+    @EntityGraph(attributePaths = {"itens", "itens.produto"})
+    Optional<Venda> findById(Long id);
+}

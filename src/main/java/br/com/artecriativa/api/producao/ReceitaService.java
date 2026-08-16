@@ -21,15 +21,18 @@ public class ReceitaService {
     private final ProdutoRepository produtoRepository;
     private final MateriaPrimaRepository materiaPrimaRepository;
 
+    @Transactional(readOnly = true)
     public List<Receita> listarTodas() {
         return receitaRepository.findAll();
     }
 
+    @Transactional(readOnly = true)
     public Receita buscarPorId(Long id) {
         return receitaRepository.findById(id)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Receita não encontrada: " + id));
     }
 
+    @Transactional(readOnly = true)
     public Receita buscarPorProdutoId(Long produtoId) {
         return receitaRepository.findByProdutoId(produtoId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException(

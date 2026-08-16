@@ -30,7 +30,7 @@ Ver `src/main/resources/db/migration/V1__schema_inicial.sql` — schema completo
 - [x] **Fase 0** — Setup: estrutura Maven da API, schema inicial do banco
 - [x] **Fase 1** — Módulo Estoque: CRUD de produtos/matérias-primas + movimentações
 - [x] **Fase 2** — Módulo Receitas/Produção (liga com Estoque) — testado ponta a ponta
-- [ ] **Fase 3** — Módulo Vendas (liga com Estoque e Financeiro)
+- [x] **Fase 3** — Módulo Vendas (liga com Estoque e Financeiro)
 - [ ] **Fase 4** — Módulo Financeiro + dashboard
 - [ ] **Fase 5** — Autenticação (login) + Módulo Tutoriais
 
@@ -53,3 +53,4 @@ A API usa as variáveis `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
 - `/api/materias-primas`, `/api/materias-primas/{id}/movimentacoes`
 - `/api/receitas`, `/api/receitas/produto/{produtoId}`
 - `/api/producoes`, `/api/producoes/produto/{produtoId}`
+- `/api/vendas`
