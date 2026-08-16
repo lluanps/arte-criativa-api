@@ -19,6 +19,12 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+app:
+  jwt:
+    # Troque via env var em produção — precisa de pelo menos 256 bits (32+ caracteres).
+    secret: ${JWT_SECRET:arte-criativa-dev-secret-troque-em-producao-0123456789abcdef}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:1440}
+
 logging:
   level:
     br.com.artecriativa: DEBUG
