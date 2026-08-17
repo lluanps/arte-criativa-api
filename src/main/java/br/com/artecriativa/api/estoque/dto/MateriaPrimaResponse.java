@@ -12,6 +12,7 @@ public record MateriaPrimaResponse(
         BigDecimal custoUnitario,
         BigDecimal estoqueAtual,
         BigDecimal estoqueMinimo,
+        BigDecimal volumeMl,
         String fornecedor,
         Instant criadoEm,
         Instant atualizadoEm
@@ -24,6 +25,7 @@ public record MateriaPrimaResponse(
                 materiaPrima.getCustoUnitario(),
                 materiaPrima.getEstoqueAtual(),
                 materiaPrima.getEstoqueMinimo(),
+                materiaPrima.getVolumeMl(),
                 materiaPrima.getFornecedor(),
                 materiaPrima.getCriadoEm(),
                 materiaPrima.getAtualizadoEm()

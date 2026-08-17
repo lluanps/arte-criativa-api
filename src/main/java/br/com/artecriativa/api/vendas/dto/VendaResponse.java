@@ -8,8 +8,10 @@ import java.util.List;
 
 public record VendaResponse(
         Long id,
+        Long clienteId,
         String clienteNome,
-        String canal,
+        Long canalId,
+        String canalNome,
         BigDecimal valorTotal,
         List<VendaItemResponse> itens,
         Instant dataVenda,
@@ -18,8 +20,10 @@ public record VendaResponse(
     public static VendaResponse de(Venda venda) {
         return new VendaResponse(
                 venda.getId(),
-                venda.getClienteNome(),
-                venda.getCanal(),
+                venda.getCliente() != null ? venda.getCliente().getId() : null,
+                venda.getCliente() != null ? venda.getCliente().getNome() : null,
+                venda.getCanal() != null ? venda.getCanal().getId() : null,
+                venda.getCanal() != null ? venda.getCanal().getNome() : null,
                 venda.getValorTotal(),
                 venda.getItens().stream().map(VendaItemResponse::de).toList(),
                 venda.getDataVenda(),
