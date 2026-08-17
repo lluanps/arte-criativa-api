@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.common;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -27,6 +28,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErroResposta> tratarEstadoInvalido(IllegalStateException ex) {
         return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                 .body(new ErroResposta(Instant.now(), HttpStatus.UNPROCESSABLE_ENTITY.value(), ex.getMessage(), null));
+    }
+
+    /**
+     * Violação de FK do banco — ex: tentar excluir um produto que já tem movimentações,
+     * vendas, receita ou tutorial vinculados. O service não valida isso antecipadamente
+     * (não vale a pena checar cada relação uma a uma); deixamos o banco recusar e
+     * traduzimos aqui pra uma resposta decente em vez do 500 padrão do Spring.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErroResposta> tratarViolacaoIntegridade(DataIntegrityViolationException ex) {
+        String mensagem = "Não é possível excluir: existem outros registros vinculados a este item "
+                + "(ex: movimentações, vendas, receita ou tutorial).";
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErroResposta(Instant.now(), HttpStatus.CONFLICT.value(), mensagem, null));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

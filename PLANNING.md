@@ -32,7 +32,7 @@ Ver `src/main/resources/db/migration/V1__schema_inicial.sql` — schema completo
 - [x] **Fase 2** — Módulo Receitas/Produção (liga com Estoque) — testado ponta a ponta
 - [x] **Fase 3** — Módulo Vendas (liga com Estoque e Financeiro)
 - [x] **Fase 4** — Módulo Financeiro + dashboard
-- [ ] **Fase 5** — Autenticação (login) + Módulo Tutoriais
+- [x] **Fase 5** — Autenticação (login) + Módulo Tutoriais
 
 ## Como rodar localmente
 
@@ -47,6 +47,8 @@ mvn spring-boot:run
 
 A API usa as variáveis `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD` (com defaults apontando pro Postgres do `docker-compose.yml`, na porta 5433). Pra produção, aponte essas variáveis pro Postgres gerenciado (Supabase, Neon, Railway etc.).
 
+Também usa `JWT_SECRET` (tem um default só pra dev — **troque em produção**, precisa de 32+ caracteres), `JWT_EXPIRATION_MINUTES` (default 1440) e `CORS_ALLOWED_ORIGINS` (default `http://localhost:3000`, separadas por vírgula se precisar de mais de uma origem — ex: preview deploy + produção do front).
+
 ## Endpoints
 
 - `/api/produtos`, `/api/produtos/{id}/movimentacoes`
@@ -57,3 +59,15 @@ A API usa as variáveis `DATABASE_URL`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`
 - `/api/lancamentos-financeiros` (filtro opcional `?inicio=&fim=`)
 - `/api/contas` (filtro opcional `?tipo=PAGAR|RECEBER`), `/api/contas/{id}/pagar`
 - `/api/financeiro/dashboard` (opcional `?inicio=&fim=`, default mês corrente)
+- `/api/auth/register`, `/api/auth/login` (retornam JWT)
+- `/api/tutoriais`, `/api/tutoriais/produto/{produtoId}`
+
+## Autenticação
+
+Infra de login pronta (registro aberto + login, ambos emitindo JWT válido por
+`JWT_EXPIRATION_MINUTES` — default 1440min/24h) e `JwtAuthFilter` já populando o
+contexto de segurança quando um token válido é enviado. **Por decisão de escopo, os
+endpoints de negócio (produtos, vendas, financeiro etc.) continuam públicos por
+enquanto** — proteger rota por rota fica pra depois. Pra ligar a proteção geral, troca
+`anyRequest().permitAll()` por `anyRequest().authenticated()` (mantendo
+`/api/auth/**` liberado) em `SecurityConfig`.
