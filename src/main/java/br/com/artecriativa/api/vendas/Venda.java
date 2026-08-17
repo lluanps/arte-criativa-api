@@ -1,11 +1,15 @@
 package br.com.artecriativa.api.vendas;
 
+import br.com.artecriativa.api.cadastros.CanalVenda;
+import br.com.artecriativa.api.cadastros.Cliente;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
@@ -34,11 +38,13 @@ public class Venda {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "cliente_nome", length = 150)
-    private String clienteNome;
+    @ManyToOne
+    @JoinColumn(name = "cliente_id")
+    private Cliente cliente;
 
-    @Column(length = 50)
-    private String canal;
+    @ManyToOne
+    @JoinColumn(name = "canal_id")
+    private CanalVenda canal;
 
     @Column(name = "valor_total", nullable = false, precision = 12, scale = 2)
     private BigDecimal valorTotal = BigDecimal.ZERO;

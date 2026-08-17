@@ -13,10 +13,13 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
     // o response é montado no controller, fora da transação do service, e um
     // fetchgraph implicitamente vira LAZY toda associação que não é listada aqui,
     // mesmo as @ManyToOne que por padrão são EAGER.
-    @EntityGraph(attributePaths = {"itens", "itens.produto"})
+    @EntityGraph(attributePaths = {"itens", "itens.produto", "cliente", "canal"})
     List<Venda> findAllByOrderByDataVendaDesc();
 
     @Override
-    @EntityGraph(attributePaths = {"itens", "itens.produto"})
+    @EntityGraph(attributePaths = {"itens", "itens.produto", "cliente", "canal"})
     Optional<Venda> findById(Long id);
+
+    @EntityGraph(attributePaths = {"itens", "itens.produto", "cliente", "canal"})
+    List<Venda> findByClienteIdOrderByDataVendaDesc(Long clienteId);
 }

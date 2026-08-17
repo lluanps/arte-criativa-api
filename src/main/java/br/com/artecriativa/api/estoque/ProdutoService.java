@@ -1,5 +1,7 @@
 package br.com.artecriativa.api.estoque;
 
+import br.com.artecriativa.api.cadastros.Categoria;
+import br.com.artecriativa.api.cadastros.CategoriaRepository;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
@@ -16,6 +18,7 @@ public class ProdutoService {
 
     private final ProdutoRepository produtoRepository;
     private final MovimentacaoProdutoRepository movimentacaoRepository;
+    private final CategoriaRepository categoriaRepository;
 
     public List<Produto> listarTodos() {
         return produtoRepository.findAll();
@@ -86,10 +89,19 @@ public class ProdutoService {
     private void aplicarRequest(Produto produto, ProdutoRequest request) {
         produto.setNome(request.nome());
         produto.setDescricao(request.descricao());
-        produto.setCategoria(request.categoria());
+        produto.setCategoria(buscarCategoria(request.categoriaId()));
+        produto.setVolumeMl(request.volumeMl());
         produto.setPrecoVenda(request.precoVenda());
         produto.setEstoqueMinimo(request.estoqueMinimo());
         produto.setFotoUrl(request.fotoUrl());
         produto.setAtivo(request.ativo() == null || request.ativo());
+    }
+
+    private Categoria buscarCategoria(Long categoriaId) {
+        if (categoriaId == null) {
+            return null;
+        }
+        return categoriaRepository.findById(categoriaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria não encontrada: " + categoriaId));
     }
 }

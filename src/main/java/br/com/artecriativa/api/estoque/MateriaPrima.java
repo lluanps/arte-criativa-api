@@ -44,6 +44,9 @@ public class MateriaPrima {
     @Column(name = "estoque_minimo", nullable = false, precision = 12, scale = 3)
     private BigDecimal estoqueMinimo = BigDecimal.ZERO;
 
+    @Column(name = "volume_ml", precision = 10, scale = 2)
+    private BigDecimal volumeMl;
+
     @Column(length = 150)
     private String fornecedor;
 

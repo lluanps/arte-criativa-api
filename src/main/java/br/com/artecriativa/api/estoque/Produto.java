@@ -1,10 +1,13 @@
 package br.com.artecriativa.api.estoque;
 
+import br.com.artecriativa.api.cadastros.Categoria;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -36,8 +39,12 @@ public class Produto {
     @Column(columnDefinition = "TEXT")
     private String descricao;
 
-    @Column(length = 100)
-    private String categoria;
+    @ManyToOne
+    @JoinColumn(name = "categoria_id")
+    private Categoria categoria;
+
+    @Column(name = "volume_ml", precision = 10, scale = 2)
+    private BigDecimal volumeMl;
 
     @Column(name = "preco_venda", nullable = false, precision = 12, scale = 2)
     private BigDecimal precoVenda;

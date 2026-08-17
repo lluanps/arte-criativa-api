@@ -37,4 +37,9 @@ public class VendaController {
     public VendaResponse registrar(@Valid @RequestBody VendaRequest request) {
         return VendaResponse.de(vendaService.registrar(request));
     }
+
+    @GetMapping("/cliente/{clienteId}")
+    public List<VendaResponse> listarPorCliente(@PathVariable Long clienteId) {
+        return vendaService.listarPorCliente(clienteId).stream().map(VendaResponse::de).toList();
+    }
 }

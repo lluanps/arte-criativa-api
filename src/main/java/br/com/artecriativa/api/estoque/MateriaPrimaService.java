@@ -88,6 +88,7 @@ public class MateriaPrimaService {
         materiaPrima.setUnidadeMedida(request.unidadeMedida());
         materiaPrima.setCustoUnitario(request.custoUnitario());
         materiaPrima.setEstoqueMinimo(request.estoqueMinimo());
+        materiaPrima.setVolumeMl(request.volumeMl());
         materiaPrima.setFornecedor(request.fornecedor());
     }
 }
