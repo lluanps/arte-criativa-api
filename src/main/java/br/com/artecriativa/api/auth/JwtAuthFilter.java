@@ -20,8 +20,7 @@ import java.util.Optional;
  * Lê o header {@code Authorization: Bearer <token>}, valida o JWT e — se válido — popula
  * o {@link SecurityContextHolder} com o e-mail do usuário como principal. Não bloqueia a
  * requisição se o token estiver ausente ou inválido: quem decide se a rota exige
- * autenticação é o {@link SecurityConfig}. Por enquanto nenhuma rota exige (Fase 5 monta
- * só a infra), mas o filtro já deixa tudo pronto pra quando isso for ligado.
+ * autenticação é o {@link SecurityConfig} (hoje, quase todas exigem).
  */
 @Component
 @RequiredArgsConstructor
