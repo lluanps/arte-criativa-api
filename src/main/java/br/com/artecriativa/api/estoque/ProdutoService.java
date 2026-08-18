@@ -2,6 +2,7 @@ package br.com.artecriativa.api.estoque;
 
 import br.com.artecriativa.api.cadastros.Categoria;
 import br.com.artecriativa.api.cadastros.CategoriaRepository;
+import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
@@ -65,7 +66,9 @@ public class ProdutoService {
         if (novoEstoque.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalStateException(
                     "Estoque insuficiente para o produto '%s'. Disponível: %s, solicitado: %s"
-                            .formatted(produto.getNome(), produto.getEstoqueAtual(), request.quantidade()));
+                            .formatted(produto.getNome(),
+                                    FormatoNumerico.semZerosDesnecessarios(produto.getEstoqueAtual()),
+                                    FormatoNumerico.semZerosDesnecessarios(request.quantidade())));
         }
 
         MovimentacaoProduto movimentacao = new MovimentacaoProduto();

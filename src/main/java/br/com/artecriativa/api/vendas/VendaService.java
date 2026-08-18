@@ -4,6 +4,7 @@ import br.com.artecriativa.api.cadastros.CanalVenda;
 import br.com.artecriativa.api.cadastros.CanalVendaRepository;
 import br.com.artecriativa.api.cadastros.Cliente;
 import br.com.artecriativa.api.cadastros.ClienteRepository;
+import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.MotivoMovimentacaoProduto;
 import br.com.artecriativa.api.estoque.MovimentacaoProduto;
@@ -74,7 +75,9 @@ public class VendaService {
             if (novoEstoque.compareTo(BigDecimal.ZERO) < 0) {
                 throw new IllegalStateException(
                         "Estoque insuficiente do produto '%s'. Disponível: %s, solicitado: %s"
-                                .formatted(produto.getNome(), produto.getEstoqueAtual(), itemRequest.quantidade()));
+                                .formatted(produto.getNome(),
+                                        FormatoNumerico.semZerosDesnecessarios(produto.getEstoqueAtual()),
+                                        FormatoNumerico.semZerosDesnecessarios(itemRequest.quantidade())));
             }
 
             BigDecimal precoUnitario = itemRequest.precoUnitario() != null

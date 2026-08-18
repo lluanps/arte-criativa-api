@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.common;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,15 +32,23 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Violação de FK do banco — ex: tentar excluir um produto que já tem movimentações,
-     * vendas, receita ou tutorial vinculados. O service não valida isso antecipadamente
-     * (não vale a pena checar cada relação uma a uma); deixamos o banco recusar e
-     * traduzimos aqui pra uma resposta decente em vez do 500 padrão do Spring.
+     * Violação de constraint do banco. O caso mais comum é uma FK ao tentar excluir um
+     * produto/matéria-prima que já tem movimentações, vendas, receita ou tutorial
+     * vinculados — o service não valida isso antecipadamente (não vale a pena checar
+     * cada relação uma a uma), deixamos o banco recusar e traduzimos aqui.
+     *
+     * Mas essa mesma exceção também pode vir de um POST/PUT (ex: violação de UNIQUE ou
+     * NOT NULL) — nesses casos a mensagem de "não é possível excluir" é enganosa, então
+     * só a usamos quando a requisição era de fato um DELETE.
      */
     @ExceptionHandler(DataIntegrityViolationException.class)
-    public ResponseEntity<ErroResposta> tratarViolacaoIntegridade(DataIntegrityViolationException ex) {
-        String mensagem = "Não é possível excluir: existem outros registros vinculados a este item "
-                + "(ex: movimentações, vendas, receita ou tutorial).";
+    public ResponseEntity<ErroResposta> tratarViolacaoIntegridade(DataIntegrityViolationException ex,
+                                                                    HttpServletRequest requisicao) {
+        String mensagem = "DELETE".equalsIgnoreCase(requisicao.getMethod())
+                ? "Não é possível excluir: existem outros registros vinculados a este item "
+                        + "(ex: movimentações, vendas, receita ou tutorial)."
+                : "Não foi possível salvar: os dados informados violam uma restrição do banco "
+                        + "(ex: valor duplicado ou combinação já existente). Confira os campos e tente novamente.";
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErroResposta(Instant.now(), HttpStatus.CONFLICT.value(), mensagem, null));
     }
