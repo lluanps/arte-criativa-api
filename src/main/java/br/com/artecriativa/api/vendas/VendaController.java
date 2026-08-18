@@ -5,6 +5,7 @@ import br.com.artecriativa.api.vendas.dto.VendaResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,5 +42,12 @@ public class VendaController {
     @GetMapping("/cliente/{clienteId}")
     public List<VendaResponse> listarPorCliente(@PathVariable Long clienteId) {
         return vendaService.listarPorCliente(clienteId).stream().map(VendaResponse::de).toList();
+    }
+
+    /** Estorna estoque e remove o lançamento financeiro gerado — ver {@link VendaService#excluir}. */
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void excluir(@PathVariable Long id) {
+        vendaService.excluir(id);
     }
 }

@@ -120,6 +120,36 @@ public class VendaService {
         return venda;
     }
 
+    /**
+     * Exclui a venda estornando os efeitos colaterais do registro original: devolve a
+     * quantidade de cada item ao estoque (com uma movimentação de AJUSTE explicando o
+     * estorno) e remove o lançamento financeiro de receita gerado por ela. Sem isso, o
+     * estoque e o financeiro ficariam desalinhados com a realidade.
+     */
+    @Transactional
+    public void excluir(Long id) {
+        Venda venda = buscarPorId(id);
+
+        for (VendaItem item : venda.getItens()) {
+            Produto produto = item.getProduto();
+            produto.setEstoqueAtual(produto.getEstoqueAtual().add(item.getQuantidade()));
+            produtoRepository.save(produto);
+
+            MovimentacaoProduto estorno = new MovimentacaoProduto();
+            estorno.setProduto(produto);
+            estorno.setTipo(TipoMovimentacao.ENTRADA);
+            estorno.setMotivo(MotivoMovimentacaoProduto.AJUSTE);
+            estorno.setQuantidade(item.getQuantidade());
+            estorno.setObservacao("Estorno da venda #" + venda.getId() + " (excluída)");
+            movimentacaoProdutoRepository.save(estorno);
+        }
+
+        lancamentoFinanceiroRepository.findByOrigemAndOrigemId(OrigemLancamento.VENDA, venda.getId())
+                .ifPresent(lancamentoFinanceiroRepository::delete);
+
+        vendaRepository.delete(venda);
+    }
+
     private Cliente buscarCliente(Long clienteId) {
         if (clienteId == null) {
             return null;
