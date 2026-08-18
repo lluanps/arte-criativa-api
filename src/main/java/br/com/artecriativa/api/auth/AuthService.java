@@ -1,20 +1,45 @@
 package br.com.artecriativa.api.auth;
 
 import br.com.artecriativa.api.auth.dto.AuthResponse;
+import br.com.artecriativa.api.auth.dto.EsqueciSenhaRequest;
 import br.com.artecriativa.api.auth.dto.LoginRequest;
+import br.com.artecriativa.api.auth.dto.RedefinirSenhaRequest;
 import br.com.artecriativa.api.auth.dto.RegisterRequest;
-import lombok.RequiredArgsConstructor;
+import br.com.artecriativa.api.email.EmailService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
+    private static final long EXPIRACAO_RESET_HORAS = 1;
+
     private final UsuarioRepository usuarioRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final EmailService emailService;
+    private final String frontendUrl;
+
+    public AuthService(UsuarioRepository usuarioRepository,
+                        PasswordResetTokenRepository passwordResetTokenRepository,
+                        PasswordEncoder passwordEncoder,
+                        JwtService jwtService,
+                        EmailService emailService,
+                        @Value("${app.frontend-url}") String frontendUrl) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordResetTokenRepository = passwordResetTokenRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.emailService = emailService;
+        this.frontendUrl = frontendUrl;
+    }
 
     @Transactional
     public AuthResponse registrar(RegisterRequest request) {
@@ -28,6 +53,9 @@ public class AuthService {
         usuario.setEmail(email);
         usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
         usuario = usuarioRepository.save(usuario);
+
+        emailService.enviar(usuario.getEmail(), "Bem-vindo(a) à Arte Criativa",
+                htmlBoasVindas(usuario.getNome()));
 
         return montarResposta(usuario);
     }
@@ -46,8 +74,60 @@ public class AuthService {
         return montarResposta(usuario);
     }
 
+    /**
+     * Sempre "sucede" do ponto de vista do caller, exista ou não o e-mail cadastrado —
+     * não dar pista de quais e-mails têm conta. Se existir, gera um token de uso único
+     * (expira em 1h) e dispara o e-mail com o link de redefinição.
+     */
+    @Transactional
+    public void esqueciSenha(EsqueciSenhaRequest request) {
+        String email = request.email().trim().toLowerCase();
+        usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+            PasswordResetToken resetToken = new PasswordResetToken();
+            resetToken.setUsuario(usuario);
+            resetToken.setToken(UUID.randomUUID().toString());
+            resetToken.setExpiraEm(Instant.now().plus(EXPIRACAO_RESET_HORAS, ChronoUnit.HOURS));
+            passwordResetTokenRepository.save(resetToken);
+
+            String link = frontendUrl + "/redefinir-senha?token=" + resetToken.getToken();
+            emailService.enviar(usuario.getEmail(), "Redefinição de senha - Arte Criativa",
+                    htmlRecuperacaoSenha(usuario.getNome(), link));
+        });
+    }
+
+    @Transactional
+    public void redefinirSenha(RedefinirSenhaRequest request) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.token())
+                .orElseThrow(() -> new IllegalStateException("Link de redefinição inválido ou expirado"));
+
+        if (!resetToken.valido()) {
+            throw new IllegalStateException("Link de redefinição inválido ou expirado");
+        }
+
+        Usuario usuario = resetToken.getUsuario();
+        usuario.setSenhaHash(passwordEncoder.encode(request.novaSenha()));
+        resetToken.setUsadoEm(Instant.now());
+    }
+
     private AuthResponse montarResposta(Usuario usuario) {
         String token = jwtService.gerarToken(usuario);
         return new AuthResponse(token, usuario.getId(), usuario.getNome(), usuario.getEmail());
+    }
+
+    private String htmlBoasVindas(String nome) {
+        return """
+                <p>Olá, %s!</p>
+                <p>Seu acesso ao sistema da <strong>Arte Criativa</strong> foi criado com sucesso.</p>
+                <p>Qualquer dúvida, é só responder este e-mail.</p>
+                """.formatted(nome);
+    }
+
+    private String htmlRecuperacaoSenha(String nome, String link) {
+        return """
+                <p>Olá, %s!</p>
+                <p>Recebemos um pedido pra redefinir sua senha no sistema da Arte Criativa.</p>
+                <p><a href="%s">Clique aqui pra criar uma senha nova</a> — o link expira em 1 hora.</p>
+                <p>Se você não pediu isso, pode ignorar este e-mail.</p>
+                """.formatted(nome, link);
     }
 }

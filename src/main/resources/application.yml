@@ -28,6 +28,14 @@ app:
   cors:
     # Origens do front autorizadas a chamar a API do browser (separadas por vírgula).
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  email:
+    # Vazio = envio vira no-op com log de aviso (ver EmailService) — não precisa configurar
+    # pra rodar local. "onboarding@resend.dev" é o remetente sandbox do Resend, funciona
+    # sem verificar domínio próprio; troque por um domínio verificado quando tiver um.
+    resend-api-key: ${RESEND_API_KEY:}
+    remetente: ${EMAIL_REMETENTE:Arte Criativa <onboarding@resend.dev>}
+  # Base do front, usada pra montar o link de redefinição de senha no e-mail.
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
 
 logging:
   level:
