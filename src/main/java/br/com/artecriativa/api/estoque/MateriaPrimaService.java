@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.estoque;
 
+import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
@@ -62,7 +63,9 @@ public class MateriaPrimaService {
         if (novoEstoque.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalStateException(
                     "Estoque insuficiente da matéria-prima '%s'. Disponível: %s, solicitado: %s"
-                            .formatted(materiaPrima.getNome(), materiaPrima.getEstoqueAtual(), request.quantidade()));
+                            .formatted(materiaPrima.getNome(),
+                                    FormatoNumerico.semZerosDesnecessarios(materiaPrima.getEstoqueAtual()),
+                                    FormatoNumerico.semZerosDesnecessarios(request.quantidade())));
         }
 
         MovimentacaoMateriaPrima movimentacao = new MovimentacaoMateriaPrima();
