@@ -92,6 +92,7 @@ public class ProdutoService {
         produto.setCategoria(buscarCategoria(request.categoriaId()));
         produto.setVolumeMl(request.volumeMl());
         produto.setPrecoVenda(request.precoVenda());
+        produto.setMargemDesejadaPercentual(request.margemDesejadaPercentual());
         produto.setEstoqueMinimo(request.estoqueMinimo());
         produto.setFotoUrl(request.fotoUrl());
         produto.setAtivo(request.ativo() == null || request.ativo());

@@ -18,8 +18,18 @@ public record ReceitaResponse(
         BigDecimal custoProducao,
         BigDecimal margemLucro,
         BigDecimal margemPercentual,
+        BigDecimal margemDesejadaPercentual,
+        BigDecimal precoSugerido,
+        BigDecimal precoMercadoMin,
+        BigDecimal precoMercadoMax,
+        Instant precoMercadoAtualizadoEm,
         Instant criadoEm
 ) {
+    /** Margem alvo usada quando o produto não tem uma própria configurada — 200% (preço
+     * = 3x o custo de matéria-prima) é a referência comum pra artesanato, já que esse
+     * custo não inclui mão de obra nem outros custos indiretos. */
+    private static final BigDecimal MARGEM_DESEJADA_PADRAO = BigDecimal.valueOf(200);
+
     public static ReceitaResponse de(Receita receita) {
         BigDecimal custoProducao = calcularCustoProducao(receita);
         BigDecimal precoVenda = receita.getProduto().getPrecoVenda();
@@ -27,6 +37,15 @@ public record ReceitaResponse(
         BigDecimal margemPercentual = (margemLucro != null && precoVenda != null && precoVenda.compareTo(BigDecimal.ZERO) > 0)
                 ? margemLucro.divide(precoVenda, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP)
                 : null;
+
+        BigDecimal margemDesejada = receita.getProduto().getMargemDesejadaPercentual() != null
+                ? receita.getProduto().getMargemDesejadaPercentual()
+                : MARGEM_DESEJADA_PADRAO;
+        BigDecimal precoSugerido = custoProducao
+                .multiply(BigDecimal.ONE.add(margemDesejada.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        var categoria = receita.getProduto().getCategoria();
 
         return new ReceitaResponse(
                 receita.getId(),
@@ -38,6 +57,11 @@ public record ReceitaResponse(
                 custoProducao,
                 margemLucro,
                 margemPercentual,
+                margemDesejada,
+                precoSugerido,
+                categoria != null ? categoria.getPrecoMercadoMin() : null,
+                categoria != null ? categoria.getPrecoMercadoMax() : null,
+                categoria != null ? categoria.getPrecoMercadoAtualizadoEm() : null,
                 receita.getCriadoEm()
         );
     }

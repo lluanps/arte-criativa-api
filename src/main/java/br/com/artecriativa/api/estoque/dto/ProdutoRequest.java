@@ -13,6 +13,7 @@ public record ProdutoRequest(
         @DecimalMin(value = "0.0", message = "volume não pode ser negativo") BigDecimal volumeMl,
         @NotNull(message = "preço de venda é obrigatório")
         @DecimalMin(value = "0.0", message = "preço de venda não pode ser negativo") BigDecimal precoVenda,
+        @DecimalMin(value = "0.0", message = "margem desejada não pode ser negativa") BigDecimal margemDesejadaPercentual,
         @DecimalMin(value = "0.0", message = "estoque mínimo não pode ser negativo") BigDecimal estoqueMinimo,
         String fotoUrl,
         Boolean ativo

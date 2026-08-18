@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
@@ -30,6 +31,17 @@ public class Categoria {
 
     @Column(nullable = false, length = 100, unique = true)
     private String nome;
+
+    /** Faixa de preço de mercado pra produtos parecidos, preenchida manualmente via
+     * pesquisa periódica (não é busca automática) — ver {@code CategoriaService}. */
+    @Column(name = "preco_mercado_min", precision = 12, scale = 2)
+    private BigDecimal precoMercadoMin;
+
+    @Column(name = "preco_mercado_max", precision = 12, scale = 2)
+    private BigDecimal precoMercadoMax;
+
+    @Column(name = "preco_mercado_atualizado_em")
+    private Instant precoMercadoAtualizadoEm;
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;

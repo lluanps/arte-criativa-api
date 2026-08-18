@@ -2,6 +2,7 @@ package br.com.artecriativa.api.cadastros;
 
 import br.com.artecriativa.api.cadastros.dto.CategoriaRequest;
 import br.com.artecriativa.api.cadastros.dto.CategoriaResponse;
+import br.com.artecriativa.api.cadastros.dto.PrecoMercadoRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -49,5 +50,11 @@ public class CategoriaController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void excluir(@PathVariable Long id) {
         categoriaService.excluir(id);
+    }
+
+    /** Grava a faixa de preço de mercado pesquisada manualmente — não busca nada sozinho. */
+    @PutMapping("/{id}/preco-mercado")
+    public CategoriaResponse atualizarPrecoMercado(@PathVariable Long id, @Valid @RequestBody PrecoMercadoRequest request) {
+        return CategoriaResponse.de(categoriaService.atualizarPrecoMercado(id, request));
     }
 }
