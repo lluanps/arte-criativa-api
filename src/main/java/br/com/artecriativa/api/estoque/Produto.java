@@ -49,6 +49,11 @@ public class Produto {
     @Column(name = "preco_venda", nullable = false, precision = 12, scale = 2)
     private BigDecimal precoVenda;
 
+    /** Margem alvo sobre o custo de produção, usada pra calcular o preço sugerido na
+     * ficha técnica (ver {@code ReceitaResponse}). Nula = usa o padrão do sistema. */
+    @Column(name = "margem_desejada_percentual", precision = 6, scale = 2)
+    private BigDecimal margemDesejadaPercentual;
+
     @Column(name = "estoque_atual", nullable = false, precision = 12, scale = 3)
     private BigDecimal estoqueAtual = BigDecimal.ZERO;
 

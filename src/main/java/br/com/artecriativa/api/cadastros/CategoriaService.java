@@ -1,11 +1,13 @@
 package br.com.artecriativa.api.cadastros;
 
 import br.com.artecriativa.api.cadastros.dto.CategoriaRequest;
+import br.com.artecriativa.api.cadastros.dto.PrecoMercadoRequest;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -51,5 +53,21 @@ public class CategoriaService {
     public void excluir(Long id) {
         Categoria categoria = buscarPorId(id);
         categoriaRepository.delete(categoria);
+    }
+
+    /**
+     * Grava a faixa de preço de mercado pra produtos parecidos, pesquisada manualmente
+     * (ver {@link Categoria#getPrecoMercadoAtualizadoEm()}) — não é busca automática.
+     */
+    @Transactional
+    public Categoria atualizarPrecoMercado(Long id, PrecoMercadoRequest request) {
+        Categoria categoria = buscarPorId(id);
+        if (request.min().compareTo(request.max()) > 0) {
+            throw new IllegalStateException("Preço mínimo não pode ser maior que o máximo");
+        }
+        categoria.setPrecoMercadoMin(request.min());
+        categoria.setPrecoMercadoMax(request.max());
+        categoria.setPrecoMercadoAtualizadoEm(Instant.now());
+        return categoriaRepository.save(categoria);
     }
 }
