@@ -7,6 +7,7 @@ import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
+import br.com.artecriativa.api.ideias.IdeiaRepository;
 import br.com.artecriativa.api.producao.ProducaoRepository;
 import br.com.artecriativa.api.producao.ReceitaRepository;
 import br.com.artecriativa.api.tutoriais.TutorialRepository;
@@ -30,6 +31,7 @@ public class ProdutoService {
     private final ProducaoRepository producaoRepository;
     private final ReceitaRepository receitaRepository;
     private final TutorialRepository tutorialRepository;
+    private final IdeiaRepository ideiaRepository;
 
     public List<Produto> listarTodos() {
         return produtoRepository.findAll();
@@ -70,6 +72,7 @@ public class ProdutoService {
                             .formatted(produto.getNome(), MensagemVinculo.juntarComE(vinculos)));
         }
 
+        desvincularIdeias(id);
         produtoRepository.delete(produto);
     }
 
@@ -99,8 +102,17 @@ public class ProdutoService {
             tutorial.setProdutoRelacionado(null);
             tutorialRepository.save(tutorial);
         });
+        desvincularIdeias(id);
 
         produtoRepository.delete(produto);
+    }
+
+    /** Ideia vinculada a um produto é só uma referência leve — nunca bloqueia a exclusão. */
+    private void desvincularIdeias(Long produtoId) {
+        ideiaRepository.findByProdutoRelacionadoId(produtoId).forEach(ideia -> {
+            ideia.setProdutoRelacionado(null);
+            ideiaRepository.save(ideia);
+        });
     }
 
     /**
