@@ -25,4 +25,8 @@ public interface ReceitaRepository extends JpaRepository<Receita, Long> {
 
     @EntityGraph(attributePaths = {"itens", "itens.materiaPrima", "produto", "produto.categoria"})
     Optional<Receita> findByProdutoId(Long produtoId);
+
+    // Usado pra saber se uma matéria-prima está usada em alguma ficha técnica, na hora
+    // de decidir se ela pode ser excluída.
+    long countByItens_MateriaPrimaId(Long materiaPrimaId);
 }

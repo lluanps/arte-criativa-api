@@ -3,6 +3,7 @@ package br.com.artecriativa.api.cadastros;
 import br.com.artecriativa.api.cadastros.dto.CategoriaRequest;
 import br.com.artecriativa.api.cadastros.dto.PrecoMercadoRequest;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
+import br.com.artecriativa.api.estoque.ProdutoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,6 +16,7 @@ import java.util.List;
 public class CategoriaService {
 
     private final CategoriaRepository categoriaRepository;
+    private final ProdutoRepository produtoRepository;
 
     @Transactional(readOnly = true)
     public List<Categoria> listarTodas() {
@@ -52,6 +54,12 @@ public class CategoriaService {
     @Transactional
     public void excluir(Long id) {
         Categoria categoria = buscarPorId(id);
+        long produtos = produtoRepository.countByCategoriaId(id);
+        if (produtos > 0) {
+            throw new IllegalStateException(
+                    "Não é possível excluir '%s': %s vinculado(s) a esta categoria."
+                            .formatted(categoria.getNome(), produtos == 1 ? "1 produto está" : produtos + " produtos estão"));
+        }
         categoriaRepository.delete(categoria);
     }
 

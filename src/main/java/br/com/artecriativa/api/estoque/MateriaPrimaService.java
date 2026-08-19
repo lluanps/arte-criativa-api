@@ -1,14 +1,17 @@
 package br.com.artecriativa.api.estoque;
 
 import br.com.artecriativa.api.common.FormatoNumerico;
+import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
+import br.com.artecriativa.api.producao.ReceitaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -17,6 +20,7 @@ public class MateriaPrimaService {
 
     private final MateriaPrimaRepository materiaPrimaRepository;
     private final MovimentacaoMateriaPrimaRepository movimentacaoRepository;
+    private final ReceitaRepository receitaRepository;
 
     public List<MateriaPrima> listarTodas() {
         return materiaPrimaRepository.findAll();
@@ -44,6 +48,18 @@ public class MateriaPrimaService {
     @Transactional
     public void excluir(Long id) {
         MateriaPrima materiaPrima = buscarPorId(id);
+
+        List<String> vinculos = new ArrayList<>();
+        MensagemVinculo.add(vinculos, movimentacaoRepository.countByMateriaPrimaId(id),
+                "movimentação de estoque", "movimentações de estoque");
+        MensagemVinculo.add(vinculos, receitaRepository.countByItens_MateriaPrimaId(id),
+                "ficha técnica", "fichas técnicas");
+        if (!vinculos.isEmpty()) {
+            throw new IllegalStateException(
+                    "Não é possível excluir '%s': existem %s vinculados a esta matéria-prima."
+                            .formatted(materiaPrima.getNome(), MensagemVinculo.juntarComE(vinculos)));
+        }
+
         materiaPrimaRepository.delete(materiaPrima);
     }
 

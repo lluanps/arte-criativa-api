@@ -3,6 +3,7 @@ package br.com.artecriativa.api.estoque;
 import br.com.artecriativa.api.cadastros.Categoria;
 import br.com.artecriativa.api.cadastros.CategoriaRepository;
 import br.com.artecriativa.api.common.FormatoNumerico;
+import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -52,9 +54,22 @@ public class ProdutoService {
         return produtoRepository.save(produto);
     }
 
+    /**
+     * Checa proativamente (em vez de deixar o banco recusar por FK) e recusa com uma
+     * mensagem que diz exatamente o que está vinculado, pra a pessoa saber se é seguro
+     * excluir de vez ou se precisa desativar.
+     */
     @Transactional
     public void excluir(Long id) {
         Produto produto = buscarPorId(id);
+
+        List<String> vinculos = descreverVinculos(id);
+        if (!vinculos.isEmpty()) {
+            throw new IllegalStateException(
+                    "Não é possível excluir '%s': existem %s vinculados a este item."
+                            .formatted(produto.getNome(), MensagemVinculo.juntarComE(vinculos)));
+        }
+
         produtoRepository.delete(produto);
     }
 
@@ -71,7 +86,7 @@ public class ProdutoService {
     public void excluirDefinitivamente(Long id) {
         Produto produto = buscarPorId(id);
 
-        if (vendaRepository.existsByItens_ProdutoId(id)) {
+        if (vendaRepository.countByItens_ProdutoId(id) > 0) {
             throw new IllegalStateException(
                     "Não é possível excluir definitivamente: '%s' já teve venda registrada — excluir apagaria o histórico de faturamento. Desative o produto em vez disso."
                             .formatted(produto.getNome()));
@@ -86,6 +101,25 @@ public class ProdutoService {
         });
 
         produtoRepository.delete(produto);
+    }
+
+    /**
+     * Lista, em português, o que está impedindo a exclusão simples do produto — cada
+     * item já vem no plural/singular certo e com a contagem, ex: "3 movimentações de
+     * estoque", "1 venda", "ficha técnica".
+     */
+    private List<String> descreverVinculos(Long produtoId) {
+        List<String> vinculos = new ArrayList<>();
+        MensagemVinculo.add(vinculos, movimentacaoRepository.countByProdutoId(produtoId),
+                "movimentação de estoque", "movimentações de estoque");
+        MensagemVinculo.add(vinculos, vendaRepository.countByItens_ProdutoId(produtoId), "venda", "vendas");
+        MensagemVinculo.add(vinculos, producaoRepository.countByProdutoId(produtoId),
+                "produção registrada", "produções registradas");
+        if (receitaRepository.findByProdutoId(produtoId).isPresent()) {
+            vinculos.add("ficha técnica");
+        }
+        MensagemVinculo.add(vinculos, tutorialRepository.countByProdutoRelacionadoId(produtoId), "tutorial", "tutoriais");
+        return vinculos;
     }
 
     /**
