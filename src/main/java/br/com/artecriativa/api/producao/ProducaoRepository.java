@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface ProducaoRepository extends JpaRepository<Producao, Long> {
     List<Producao> findByProdutoIdOrderByDataProducaoDesc(Long produtoId);
+
+    void deleteByProdutoId(Long produtoId);
 }

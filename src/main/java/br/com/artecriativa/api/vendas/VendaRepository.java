@@ -22,4 +22,9 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
 
     @EntityGraph(attributePaths = {"itens", "itens.produto", "cliente", "canal"})
     List<Venda> findByClienteIdOrderByDataVendaDesc(Long clienteId);
+
+    // Usado pra decidir se um produto pode ser excluído em cascata (cadastro por
+    // engano) ou só desativado — excluir um produto que já teve venda de verdade
+    // apagaria histórico de faturamento.
+    boolean existsByItens_ProdutoId(Long produtoId);
 }

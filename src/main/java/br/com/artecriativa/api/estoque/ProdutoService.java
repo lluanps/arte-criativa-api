@@ -6,6 +6,10 @@ import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
+import br.com.artecriativa.api.producao.ProducaoRepository;
+import br.com.artecriativa.api.producao.ReceitaRepository;
+import br.com.artecriativa.api.tutoriais.TutorialRepository;
+import br.com.artecriativa.api.vendas.VendaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +24,10 @@ public class ProdutoService {
     private final ProdutoRepository produtoRepository;
     private final MovimentacaoProdutoRepository movimentacaoRepository;
     private final CategoriaRepository categoriaRepository;
+    private final VendaRepository vendaRepository;
+    private final ProducaoRepository producaoRepository;
+    private final ReceitaRepository receitaRepository;
+    private final TutorialRepository tutorialRepository;
 
     public List<Produto> listarTodos() {
         return produtoRepository.findAll();
@@ -47,6 +55,36 @@ public class ProdutoService {
     @Transactional
     public void excluir(Long id) {
         Produto produto = buscarPorId(id);
+        produtoRepository.delete(produto);
+    }
+
+    /**
+     * Exclui o produto "de vez", levando junto movimentações de estoque, produções e a
+     * ficha técnica (receita), e desvinculando (sem apagar) tutoriais relacionados —
+     * pensado pra corrigir um cadastro feito por engano.
+     * <p>
+     * Só permite quando o produto nunca teve venda de verdade: excluir nesse caso
+     * apagaria histórico de faturamento (venda + lançamento financeiro), o que não dá
+     * pra desfazer. Quando há venda, o chamador deve oferecer desativar em vez disso.
+     */
+    @Transactional
+    public void excluirDefinitivamente(Long id) {
+        Produto produto = buscarPorId(id);
+
+        if (vendaRepository.existsByItens_ProdutoId(id)) {
+            throw new IllegalStateException(
+                    "Não é possível excluir definitivamente: '%s' já teve venda registrada — excluir apagaria o histórico de faturamento. Desative o produto em vez disso."
+                            .formatted(produto.getNome()));
+        }
+
+        movimentacaoRepository.deleteByProdutoId(id);
+        producaoRepository.deleteByProdutoId(id);
+        receitaRepository.findByProdutoId(id).ifPresent(receitaRepository::delete);
+        tutorialRepository.findByProdutoRelacionadoId(id).forEach(tutorial -> {
+            tutorial.setProdutoRelacionado(null);
+            tutorialRepository.save(tutorial);
+        });
+
         produtoRepository.delete(produto);
     }
 
