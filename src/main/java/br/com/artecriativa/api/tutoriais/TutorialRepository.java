@@ -21,4 +21,6 @@ public interface TutorialRepository extends JpaRepository<Tutorial, Long> {
 
     @EntityGraph(attributePaths = {"passos", "produtoRelacionado"})
     List<Tutorial> findByProdutoRelacionadoId(Long produtoId);
+
+    long countByProdutoRelacionadoId(Long produtoId);
 }

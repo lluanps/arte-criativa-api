@@ -7,5 +7,7 @@ import java.util.List;
 public interface MovimentacaoProdutoRepository extends JpaRepository<MovimentacaoProduto, Long> {
     List<MovimentacaoProduto> findByProdutoIdOrderByDataMovimentacaoDesc(Long produtoId);
 
+    long countByProdutoId(Long produtoId);
+
     void deleteByProdutoId(Long produtoId);
 }

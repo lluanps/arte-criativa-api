@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -52,9 +53,22 @@ public class ProdutoService {
         return produtoRepository.save(produto);
     }
 
+    /**
+     * Checa proativamente (em vez de deixar o banco recusar por FK) e recusa com uma
+     * mensagem que diz exatamente o que está vinculado, pra a pessoa saber se é seguro
+     * excluir de vez ou se precisa desativar.
+     */
     @Transactional
     public void excluir(Long id) {
         Produto produto = buscarPorId(id);
+
+        List<String> vinculos = descreverVinculos(id);
+        if (!vinculos.isEmpty()) {
+            throw new IllegalStateException(
+                    "Não é possível excluir '%s': existem %s vinculados a este item."
+                            .formatted(produto.getNome(), juntarComE(vinculos)));
+        }
+
         produtoRepository.delete(produto);
     }
 
@@ -71,7 +85,7 @@ public class ProdutoService {
     public void excluirDefinitivamente(Long id) {
         Produto produto = buscarPorId(id);
 
-        if (vendaRepository.existsByItens_ProdutoId(id)) {
+        if (vendaRepository.countByItens_ProdutoId(id) > 0) {
             throw new IllegalStateException(
                     "Não é possível excluir definitivamente: '%s' já teve venda registrada — excluir apagaria o histórico de faturamento. Desative o produto em vez disso."
                             .formatted(produto.getNome()));
@@ -86,6 +100,48 @@ public class ProdutoService {
         });
 
         produtoRepository.delete(produto);
+    }
+
+    /**
+     * Lista, em português, o que está impedindo a exclusão simples do produto — cada
+     * item já vem no plural/singular certo e com a contagem, ex: "3 movimentações de
+     * estoque", "1 venda", "ficha técnica".
+     */
+    private List<String> descreverVinculos(Long produtoId) {
+        List<String> vinculos = new ArrayList<>();
+
+        long movimentacoes = movimentacaoRepository.countByProdutoId(produtoId);
+        if (movimentacoes > 0) {
+            vinculos.add(movimentacoes == 1 ? "1 movimentação de estoque" : movimentacoes + " movimentações de estoque");
+        }
+
+        long vendas = vendaRepository.countByItens_ProdutoId(produtoId);
+        if (vendas > 0) {
+            vinculos.add(vendas == 1 ? "1 venda" : vendas + " vendas");
+        }
+
+        long producoes = producaoRepository.countByProdutoId(produtoId);
+        if (producoes > 0) {
+            vinculos.add(producoes == 1 ? "1 produção registrada" : producoes + " produções registradas");
+        }
+
+        if (receitaRepository.findByProdutoId(produtoId).isPresent()) {
+            vinculos.add("ficha técnica");
+        }
+
+        long tutoriais = tutorialRepository.countByProdutoRelacionadoId(produtoId);
+        if (tutoriais > 0) {
+            vinculos.add(tutoriais == 1 ? "1 tutorial" : tutoriais + " tutoriais");
+        }
+
+        return vinculos;
+    }
+
+    private String juntarComE(List<String> itens) {
+        if (itens.size() == 1) {
+            return itens.get(0);
+        }
+        return String.join(", ", itens.subList(0, itens.size() - 1)) + " e " + itens.get(itens.size() - 1);
     }
 
     /**
