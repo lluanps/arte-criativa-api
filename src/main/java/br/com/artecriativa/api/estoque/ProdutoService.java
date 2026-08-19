@@ -181,7 +181,7 @@ public class ProdutoService {
         produto.setPrecoVenda(request.precoVenda());
         produto.setMargemDesejadaPercentual(request.margemDesejadaPercentual());
         produto.setEstoqueMinimo(request.estoqueMinimo());
-        produto.setFotoUrl(request.fotoUrl());
+        produto.setFotosUrls(new ArrayList<>(request.fotosUrls()));
         produto.setAtivo(request.ativo() == null || request.ativo());
     }
 
