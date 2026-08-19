@@ -1,13 +1,16 @@
 package br.com.artecriativa.api.estoque;
 
 import br.com.artecriativa.api.cadastros.Categoria;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -17,6 +20,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Produto final vendido (ex: vela, xícara). O estoque é mantido de forma
@@ -60,8 +65,13 @@ public class Produto {
     @Column(name = "estoque_minimo", nullable = false, precision = 12, scale = 3)
     private BigDecimal estoqueMinimo = BigDecimal.ZERO;
 
-    @Column(name = "foto_url", length = 500)
-    private String fotoUrl;
+    /** Até 5 fotos (ver validação em {@code ProdutoRequest}) — a primeira funciona
+     * como capa nas listagens. */
+    @ElementCollection
+    @CollectionTable(name = "produto_fotos", joinColumns = @JoinColumn(name = "produto_id"))
+    @OrderColumn(name = "ordem")
+    @Column(name = "url", length = 1000)
+    private List<String> fotosUrls = new ArrayList<>();
 
     @Column(nullable = false)
     private boolean ativo = true;

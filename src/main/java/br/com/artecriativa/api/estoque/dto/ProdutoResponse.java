@@ -4,6 +4,7 @@ import br.com.artecriativa.api.estoque.Produto;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 public record ProdutoResponse(
         Long id,
@@ -16,7 +17,7 @@ public record ProdutoResponse(
         BigDecimal margemDesejadaPercentual,
         BigDecimal estoqueAtual,
         BigDecimal estoqueMinimo,
-        String fotoUrl,
+        List<String> fotosUrls,
         boolean ativo,
         Instant criadoEm,
         Instant atualizadoEm
@@ -33,7 +34,7 @@ public record ProdutoResponse(
                 produto.getMargemDesejadaPercentual(),
                 produto.getEstoqueAtual(),
                 produto.getEstoqueMinimo(),
-                produto.getFotoUrl(),
+                produto.getFotosUrls(),
                 produto.isAtivo(),
                 produto.getCriadoEm(),
                 produto.getAtualizadoEm()
