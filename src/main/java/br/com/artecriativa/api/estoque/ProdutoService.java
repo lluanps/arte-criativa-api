@@ -3,6 +3,7 @@ package br.com.artecriativa.api.estoque;
 import br.com.artecriativa.api.cadastros.Categoria;
 import br.com.artecriativa.api.cadastros.CategoriaRepository;
 import br.com.artecriativa.api.common.FormatoNumerico;
+import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
@@ -66,7 +67,7 @@ public class ProdutoService {
         if (!vinculos.isEmpty()) {
             throw new IllegalStateException(
                     "Não é possível excluir '%s': existem %s vinculados a este item."
-                            .formatted(produto.getNome(), juntarComE(vinculos)));
+                            .formatted(produto.getNome(), MensagemVinculo.juntarComE(vinculos)));
         }
 
         produtoRepository.delete(produto);
@@ -109,39 +110,16 @@ public class ProdutoService {
      */
     private List<String> descreverVinculos(Long produtoId) {
         List<String> vinculos = new ArrayList<>();
-
-        long movimentacoes = movimentacaoRepository.countByProdutoId(produtoId);
-        if (movimentacoes > 0) {
-            vinculos.add(movimentacoes == 1 ? "1 movimentação de estoque" : movimentacoes + " movimentações de estoque");
-        }
-
-        long vendas = vendaRepository.countByItens_ProdutoId(produtoId);
-        if (vendas > 0) {
-            vinculos.add(vendas == 1 ? "1 venda" : vendas + " vendas");
-        }
-
-        long producoes = producaoRepository.countByProdutoId(produtoId);
-        if (producoes > 0) {
-            vinculos.add(producoes == 1 ? "1 produção registrada" : producoes + " produções registradas");
-        }
-
+        MensagemVinculo.add(vinculos, movimentacaoRepository.countByProdutoId(produtoId),
+                "movimentação de estoque", "movimentações de estoque");
+        MensagemVinculo.add(vinculos, vendaRepository.countByItens_ProdutoId(produtoId), "venda", "vendas");
+        MensagemVinculo.add(vinculos, producaoRepository.countByProdutoId(produtoId),
+                "produção registrada", "produções registradas");
         if (receitaRepository.findByProdutoId(produtoId).isPresent()) {
             vinculos.add("ficha técnica");
         }
-
-        long tutoriais = tutorialRepository.countByProdutoRelacionadoId(produtoId);
-        if (tutoriais > 0) {
-            vinculos.add(tutoriais == 1 ? "1 tutorial" : tutoriais + " tutoriais");
-        }
-
+        MensagemVinculo.add(vinculos, tutorialRepository.countByProdutoRelacionadoId(produtoId), "tutorial", "tutoriais");
         return vinculos;
-    }
-
-    private String juntarComE(List<String> itens) {
-        if (itens.size() == 1) {
-            return itens.get(0);
-        }
-        return String.join(", ", itens.subList(0, itens.size() - 1)) + " e " + itens.get(itens.size() - 1);
     }
 
     /**

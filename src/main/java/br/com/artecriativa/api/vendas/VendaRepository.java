@@ -28,4 +28,9 @@ public interface VendaRepository extends JpaRepository<Venda, Long> {
     // apagaria histórico de faturamento. Também serve pra descrever quantas vendas
     // estão vinculadas quando a exclusão simples é bloqueada.
     long countByItens_ProdutoId(Long produtoId);
+
+    // Idem, pra decidir se cliente/canal podem ser excluídos.
+    long countByClienteId(Long clienteId);
+
+    long countByCanalId(Long canalId);
 }

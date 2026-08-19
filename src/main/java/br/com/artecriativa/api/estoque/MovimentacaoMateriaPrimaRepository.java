@@ -6,4 +6,6 @@ import java.util.List;
 
 public interface MovimentacaoMateriaPrimaRepository extends JpaRepository<MovimentacaoMateriaPrima, Long> {
     List<MovimentacaoMateriaPrima> findByMateriaPrimaIdOrderByDataMovimentacaoDesc(Long materiaPrimaId);
+
+    long countByMateriaPrimaId(Long materiaPrimaId);
 }
