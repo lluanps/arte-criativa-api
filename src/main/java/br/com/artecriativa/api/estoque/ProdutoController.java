@@ -53,6 +53,16 @@ public class ProdutoController {
         produtoService.excluir(id);
     }
 
+    /**
+     * Exclui o produto em cascata (movimentações, produção, ficha técnica) — usado
+     * quando o cadastro foi por engano. Recusa (409) se o produto já teve venda.
+     */
+    @DeleteMapping("/{id}/definitivo")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void excluirDefinitivamente(@PathVariable Long id) {
+        produtoService.excluirDefinitivamente(id);
+    }
+
     @PostMapping("/{id}/movimentacoes")
     @ResponseStatus(HttpStatus.CREATED)
     public MovimentacaoResponse registrarMovimentacao(@PathVariable Long id,
