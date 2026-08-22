@@ -44,6 +44,18 @@ public class MovimentacaoMateriaPrima {
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal quantidade;
 
+    /** Quanto foi pago no total nesta entrada (ex: comprei 3kg de cera por R$ 100) --
+     * opcional, só faz sentido em ENTRADA/COMPRA. Quando informado, o service calcula
+     * {@code custoUnitarioApurado} e atualiza o custo unitário da matéria-prima. */
+    @Column(name = "valor_pago", precision = 12, scale = 2)
+    private BigDecimal valorPago;
+
+    /** custo unitário desta compra especificamente (valorPago ÷ quantidade), guardado
+     * pra dar um histórico de preço pago ao longo do tempo — não é necessariamente igual
+     * ao custo unitário médio que fica em {@code MateriaPrima.custoUnitario} depois. */
+    @Column(name = "custo_unitario_apurado", precision = 12, scale = 4)
+    private BigDecimal custoUnitarioApurado;
+
     @Column(length = 500)
     private String observacao;
 

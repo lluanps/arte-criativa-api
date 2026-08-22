@@ -47,6 +47,17 @@ public class Receita {
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal rendimento = BigDecimal.ONE;
 
+    /** Custo de mão de obra por unidade produzida (não por lote/rendimento) — opcional,
+     * default 0. Somado ao custo de insumo pra formar o custo real da ficha técnica; ver
+     * {@code ReceitaResponse.custoTotal}. */
+    @Column(name = "custo_mao_de_obra", nullable = false, precision = 12, scale = 2)
+    private BigDecimal custoMaoDeObra = BigDecimal.ZERO;
+
+    /** Embalagem, etiqueta, energia etc. por unidade produzida — mesma ideia do custo de
+     * mão de obra acima. */
+    @Column(name = "custo_embalagem_outros", nullable = false, precision = 12, scale = 2)
+    private BigDecimal custoEmbalagemOutros = BigDecimal.ZERO;
+
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;
 

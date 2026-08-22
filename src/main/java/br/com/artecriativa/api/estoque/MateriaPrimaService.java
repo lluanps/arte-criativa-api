@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,10 +71,11 @@ public class MateriaPrimaService {
     @Transactional
     public MovimentacaoMateriaPrima registrarMovimentacao(Long materiaPrimaId, MovimentacaoMateriaPrimaRequest request) {
         MateriaPrima materiaPrima = buscarPorId(materiaPrimaId);
+        BigDecimal estoqueAntes = materiaPrima.getEstoqueAtual();
 
         BigDecimal novoEstoque = switch (request.tipo()) {
-            case ENTRADA -> materiaPrima.getEstoqueAtual().add(request.quantidade());
-            case SAIDA -> materiaPrima.getEstoqueAtual().subtract(request.quantidade());
+            case ENTRADA -> estoqueAntes.add(request.quantidade());
+            case SAIDA -> estoqueAntes.subtract(request.quantidade());
         };
 
         if (novoEstoque.compareTo(BigDecimal.ZERO) < 0) {
@@ -84,17 +86,44 @@ public class MateriaPrimaService {
                                     FormatoNumerico.semZerosDesnecessarios(request.quantidade())));
         }
 
+        BigDecimal custoUnitarioApurado = null;
+        if (request.valorPago() != null) {
+            if (request.tipo() != TipoMovimentacao.ENTRADA) {
+                throw new IllegalStateException("Valor pago só se aplica a uma entrada (compra) de matéria-prima.");
+            }
+            custoUnitarioApurado = request.valorPago().divide(request.quantidade(), 4, RoundingMode.HALF_UP);
+            materiaPrima.setCustoUnitario(
+                    custoMedioPonderado(estoqueAntes, materiaPrima.getCustoUnitario(), request.quantidade(), custoUnitarioApurado));
+        }
+
         MovimentacaoMateriaPrima movimentacao = new MovimentacaoMateriaPrima();
         movimentacao.setMateriaPrima(materiaPrima);
         movimentacao.setTipo(request.tipo());
         movimentacao.setMotivo(request.motivo());
         movimentacao.setQuantidade(request.quantidade());
+        movimentacao.setValorPago(request.valorPago());
+        movimentacao.setCustoUnitarioApurado(custoUnitarioApurado);
         movimentacao.setObservacao(request.observacao());
 
         materiaPrima.setEstoqueAtual(novoEstoque);
         materiaPrimaRepository.save(materiaPrima);
 
         return movimentacaoRepository.save(movimentacao);
+    }
+
+    /**
+     * Custo médio ponderado entre o que já tinha em estoque (a um custo) e o que acabou
+     * de entrar (a outro custo) — evita que o custo da ficha técnica pule bruscamente a
+     * cada compra feita a um preço diferente do anterior.
+     */
+    private static BigDecimal custoMedioPonderado(BigDecimal qtdAntiga, BigDecimal custoAntigo,
+                                                    BigDecimal qtdNova, BigDecimal custoNovo) {
+        BigDecimal qtdTotal = qtdAntiga.add(qtdNova);
+        if (qtdTotal.compareTo(BigDecimal.ZERO) == 0) {
+            return custoNovo;
+        }
+        BigDecimal valorTotal = qtdAntiga.multiply(custoAntigo).add(qtdNova.multiply(custoNovo));
+        return valorTotal.divide(qtdTotal, 4, RoundingMode.HALF_UP);
     }
 
     public List<MovimentacaoMateriaPrima> listarMovimentacoes(Long materiaPrimaId) {

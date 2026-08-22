@@ -5,6 +5,7 @@ import br.com.artecriativa.api.estoque.MateriaPrima;
 import br.com.artecriativa.api.estoque.MateriaPrimaRepository;
 import br.com.artecriativa.api.estoque.Produto;
 import br.com.artecriativa.api.estoque.ProdutoRepository;
+import br.com.artecriativa.api.estoque.UnidadeMedida;
 import br.com.artecriativa.api.producao.dto.ReceitaItemRequest;
 import br.com.artecriativa.api.producao.dto.ReceitaRequest;
 import lombok.RequiredArgsConstructor;
@@ -79,6 +80,8 @@ public class ReceitaService {
     private void aplicarRequest(Receita receita, ReceitaRequest request) {
         receita.setNome(request.nome());
         receita.setRendimento(request.rendimento());
+        receita.setCustoMaoDeObra(request.custoMaoDeObra());
+        receita.setCustoEmbalagemOutros(request.custoEmbalagemOutros());
 
         List<ReceitaItem> itens = request.itens().stream().map(this::criarItem).toList();
         receita.substituirItens(itens);
@@ -89,9 +92,19 @@ public class ReceitaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException(
                         "Matéria-prima não encontrada: " + itemRequest.materiaPrimaId()));
 
+        String unidade = itemRequest.unidadeMedida() != null && !itemRequest.unidadeMedida().isBlank()
+                ? itemRequest.unidadeMedida()
+                : materiaPrima.getUnidadeMedida();
+
+        // Valida a conversão já na hora de salvar (não só quando alguém for ler a ficha
+        // técnica depois) — se a unidade não for reconhecida ou for de outra grandeza,
+        // o erro aparece aqui, com o item errado ainda visível no formulário.
+        UnidadeMedida.converter(itemRequest.quantidade(), unidade, materiaPrima.getUnidadeMedida());
+
         ReceitaItem item = new ReceitaItem();
         item.setMateriaPrima(materiaPrima);
         item.setQuantidade(itemRequest.quantidade());
+        item.setUnidadeMedida(unidade);
         return item;
     }
 

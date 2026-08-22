@@ -39,4 +39,12 @@ public class ReceitaItem {
 
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal quantidade;
+
+    /** Unidade de {@code quantidade} — texto livre, igual ao da matéria-prima (ver
+     * {@code MateriaPrima.unidadeMedida}). Pode ser diferente da unidade cadastrada na
+     * matéria-prima (ex: receita em "g" com a matéria-prima cadastrada em "kg"); nesse
+     * caso o custo e o consumo de estoque são convertidos automaticamente — ver
+     * {@link br.com.artecriativa.api.estoque.UnidadeMedida#converter}. */
+    @Column(name = "unidade_medida", nullable = false, length = 20)
+    private String unidadeMedida;
 }

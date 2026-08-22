@@ -18,9 +18,15 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Autenticação obrigatória em toda a API: todo endpoint de negócio exige JWT válido (ver
  * {@link JwtAuthFilter}), com exceção das rotas públicas de auth (login, esqueci-senha,
- * redefinir-senha). {@code POST /api/auth/register} é a única de {@code /api/auth} que
- * também exige login — só um usuário já autenticado pode criar outro usuário, pra evitar
- * que qualquer pessoa na internet crie login no sistema.
+ * redefinir-senha) e de {@code /error}. {@code POST /api/auth/register} é a única de
+ * {@code /api/auth} que também exige login — só um usuário já autenticado pode criar
+ * outro usuário, pra evitar que qualquer pessoa na internet crie login no sistema.
+ *
+ * {@code /error} precisa ficar público porque uma rota inexistente ou com método errado
+ * (ex: chamar {@code /materias-primas} em vez de {@code /api/materias-primas}) vira um
+ * forward interno do Spring pra {@code /error} — sem isso, esse forward também exigiria
+ * autenticação e virava sempre "401 Não autenticado", mascarando o 404 real e confundindo
+ * quem está depurando (o token pode estar perfeitamente válido).
  */
 @Configuration
 @EnableWebSecurity
@@ -38,6 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/register").authenticated()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpStatus.UNAUTHORIZED.value());

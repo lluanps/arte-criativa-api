@@ -20,7 +20,8 @@ import java.time.Instant;
 /**
  * Registro de uma produção: baixa a matéria-prima consumida (via a {@link Receita} do
  * produto) e dá entrada no estoque do produto, com o custo total calculado a partir do
- * custo unitário das matérias-primas consumidas.
+ * custo unitário das matérias-primas consumidas + mão de obra/embalagem da receita
+ * (ambos opcionais, 0 quando a ficha técnica não os preenche).
  */
 @Entity
 @Table(name = "producoes")
