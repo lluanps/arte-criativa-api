@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.producao.dto;
 
+import br.com.artecriativa.api.estoque.UnidadeMedida;
 import br.com.artecriativa.api.producao.Receita;
 import br.com.artecriativa.api.producao.ReceitaItem;
 
@@ -15,7 +16,14 @@ public record ReceitaResponse(
         String nome,
         BigDecimal rendimento,
         List<ReceitaItemResponse> itens,
+        /** Custo só de matéria-prima (insumo), por unidade — não inclui mão de obra nem
+         * embalagem/outros. Ver {@code custoTotal} pro custo real. */
         BigDecimal custoProducao,
+        BigDecimal custoMaoDeObra,
+        BigDecimal custoEmbalagemOutros,
+        /** custoProducao + custoMaoDeObra + custoEmbalagemOutros — é este valor (não
+         * custoProducao) que embasa margemLucro/margemPercentual/precoSugerido abaixo. */
+        BigDecimal custoTotal,
         BigDecimal margemLucro,
         BigDecimal margemPercentual,
         BigDecimal margemDesejadaPercentual,
@@ -32,8 +40,12 @@ public record ReceitaResponse(
 
     public static ReceitaResponse de(Receita receita) {
         BigDecimal custoProducao = calcularCustoProducao(receita);
+        BigDecimal custoMaoDeObra = receita.getCustoMaoDeObra() != null ? receita.getCustoMaoDeObra() : BigDecimal.ZERO;
+        BigDecimal custoEmbalagemOutros = receita.getCustoEmbalagemOutros() != null ? receita.getCustoEmbalagemOutros() : BigDecimal.ZERO;
+        BigDecimal custoTotal = custoProducao.add(custoMaoDeObra).add(custoEmbalagemOutros);
+
         BigDecimal precoVenda = receita.getProduto().getPrecoVenda();
-        BigDecimal margemLucro = precoVenda != null ? precoVenda.subtract(custoProducao) : null;
+        BigDecimal margemLucro = precoVenda != null ? precoVenda.subtract(custoTotal) : null;
         BigDecimal margemPercentual = (margemLucro != null && precoVenda != null && precoVenda.compareTo(BigDecimal.ZERO) > 0)
                 ? margemLucro.divide(precoVenda, 4, RoundingMode.HALF_UP).multiply(BigDecimal.valueOf(100)).setScale(1, RoundingMode.HALF_UP)
                 : null;
@@ -41,7 +53,7 @@ public record ReceitaResponse(
         BigDecimal margemDesejada = receita.getProduto().getMargemDesejadaPercentual() != null
                 ? receita.getProduto().getMargemDesejadaPercentual()
                 : MARGEM_DESEJADA_PADRAO;
-        BigDecimal precoSugerido = custoProducao
+        BigDecimal precoSugerido = custoTotal
                 .multiply(BigDecimal.ONE.add(margemDesejada.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)))
                 .setScale(2, RoundingMode.HALF_UP);
 
@@ -55,6 +67,9 @@ public record ReceitaResponse(
                 receita.getRendimento(),
                 receita.getItens().stream().map(ReceitaItemResponse::de).toList(),
                 custoProducao,
+                custoMaoDeObra,
+                custoEmbalagemOutros,
+                custoTotal,
                 margemLucro,
                 margemPercentual,
                 margemDesejada,
@@ -75,7 +90,9 @@ public record ReceitaResponse(
     private static BigDecimal calcularCustoProducao(Receita receita) {
         BigDecimal custoTotal = BigDecimal.ZERO;
         for (ReceitaItem item : receita.getItens()) {
-            custoTotal = custoTotal.add(item.getQuantidade().multiply(item.getMateriaPrima().getCustoUnitario()));
+            BigDecimal quantidadeNaUnidadeDaMateriaPrima = UnidadeMedida.converter(
+                    item.getQuantidade(), item.getUnidadeMedida(), item.getMateriaPrima().getUnidadeMedida());
+            custoTotal = custoTotal.add(quantidadeNaUnidadeDaMateriaPrima.multiply(item.getMateriaPrima().getCustoUnitario()));
         }
         BigDecimal rendimento = receita.getRendimento();
         if (rendimento == null || rendimento.compareTo(BigDecimal.ZERO) <= 0) {

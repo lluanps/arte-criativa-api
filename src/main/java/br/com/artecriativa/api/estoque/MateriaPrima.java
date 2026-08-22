@@ -32,6 +32,9 @@ public class MateriaPrima {
     @Column(nullable = false, length = 150)
     private String nome;
 
+    /** Texto livre (ex: "g", "kg", "ml", "un") — ver {@link UnidadeMedida#deTexto} pra
+     * conversão entre unidades reconhecidas quando a ficha técnica usa uma unidade
+     * diferente da cadastrada aqui. */
     @Column(name = "unidade_medida", nullable = false, length = 20)
     private String unidadeMedida;
 

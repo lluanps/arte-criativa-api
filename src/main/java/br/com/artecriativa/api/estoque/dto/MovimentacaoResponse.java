@@ -13,7 +13,11 @@ public record MovimentacaoResponse(
         String motivo,
         BigDecimal quantidade,
         String observacao,
-        Instant dataMovimentacao
+        Instant dataMovimentacao,
+        /** Só preenchido em movimentação de matéria-prima com valor pago informado
+         * (ver {@code MovimentacaoMateriaPrimaRequest.valorPago}) — null em produto. */
+        BigDecimal valorPago,
+        BigDecimal custoUnitarioApurado
 ) {
     public static MovimentacaoResponse de(MovimentacaoProduto movimentacao) {
         return new MovimentacaoResponse(
@@ -22,7 +26,9 @@ public record MovimentacaoResponse(
                 movimentacao.getMotivo().name(),
                 movimentacao.getQuantidade(),
                 movimentacao.getObservacao(),
-                movimentacao.getDataMovimentacao()
+                movimentacao.getDataMovimentacao(),
+                null,
+                null
         );
     }
 
@@ -33,7 +39,9 @@ public record MovimentacaoResponse(
                 movimentacao.getMotivo().name(),
                 movimentacao.getQuantidade(),
                 movimentacao.getObservacao(),
-                movimentacao.getDataMovimentacao()
+                movimentacao.getDataMovimentacao(),
+                movimentacao.getValorPago(),
+                movimentacao.getCustoUnitarioApurado()
         );
     }
 }

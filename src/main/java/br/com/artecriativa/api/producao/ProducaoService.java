@@ -12,6 +12,7 @@ import br.com.artecriativa.api.estoque.MovimentacaoProdutoRepository;
 import br.com.artecriativa.api.estoque.Produto;
 import br.com.artecriativa.api.estoque.ProdutoRepository;
 import br.com.artecriativa.api.estoque.TipoMovimentacao;
+import br.com.artecriativa.api.estoque.UnidadeMedida;
 import br.com.artecriativa.api.producao.dto.ProducaoRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,7 +26,8 @@ import java.util.List;
  * Registra uma produção: a partir da {@link Receita} do produto, calcula o quanto de
  * cada matéria-prima é consumido (proporcional ao rendimento da receita), dá baixa no
  * estoque dessas matérias-primas, entrada no estoque do produto e calcula o custo total
- * com base no custo unitário de cada matéria-prima consumida.
+ * com base no custo unitário de cada matéria-prima consumida + mão de obra/embalagem da
+ * receita (por unidade produzida, opcionais — ver {@link Receita#getCustoMaoDeObra}).
  */
 @Service
 @RequiredArgsConstructor
@@ -68,7 +70,9 @@ public class ProducaoService {
         BigDecimal custoTotal = BigDecimal.ZERO;
         for (ReceitaItem item : receita.getItens()) {
             MateriaPrima materiaPrima = item.getMateriaPrima();
-            BigDecimal consumo = item.getQuantidade().multiply(fator).setScale(ESCALA_QUANTIDADE, RoundingMode.HALF_UP);
+            BigDecimal quantidadeNaUnidadeDaMateriaPrima = UnidadeMedida.converter(
+                    item.getQuantidade(), item.getUnidadeMedida(), materiaPrima.getUnidadeMedida());
+            BigDecimal consumo = quantidadeNaUnidadeDaMateriaPrima.multiply(fator).setScale(ESCALA_QUANTIDADE, RoundingMode.HALF_UP);
 
             BigDecimal novoEstoque = materiaPrima.getEstoqueAtual().subtract(consumo);
             if (novoEstoque.compareTo(BigDecimal.ZERO) < 0) {
@@ -90,6 +94,12 @@ public class ProducaoService {
             movimentacao.setObservacao("Produção de %s %s".formatted(request.quantidadeProduzida(), produto.getNome()));
             movimentacaoMateriaPrimaRepository.save(movimentacao);
         }
+
+        // Mão de obra e embalagem/outros são "por unidade produzida" (não por lote/rendimento,
+        // ver Receita) — diferente do custo de insumo acima, que é por rendimento da receita.
+        // Ambos são opcionais e já vêm 0 por padrão quando a ficha técnica não os preenche.
+        BigDecimal custoIndiretoUnitario = receita.getCustoMaoDeObra().add(receita.getCustoEmbalagemOutros());
+        custoTotal = custoTotal.add(custoIndiretoUnitario.multiply(request.quantidadeProduzida()));
         custoTotal = custoTotal.setScale(2, RoundingMode.HALF_UP);
 
         produto.setEstoqueAtual(produto.getEstoqueAtual().add(request.quantidadeProduzida()));
