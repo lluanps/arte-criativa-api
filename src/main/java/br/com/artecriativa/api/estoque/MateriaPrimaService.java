@@ -5,6 +5,10 @@ import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
+import br.com.artecriativa.api.financeiro.LancamentoFinanceiro;
+import br.com.artecriativa.api.financeiro.LancamentoFinanceiroRepository;
+import br.com.artecriativa.api.financeiro.OrigemLancamento;
+import br.com.artecriativa.api.financeiro.TipoLancamento;
 import br.com.artecriativa.api.producao.ReceitaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +26,7 @@ public class MateriaPrimaService {
     private final MateriaPrimaRepository materiaPrimaRepository;
     private final MovimentacaoMateriaPrimaRepository movimentacaoRepository;
     private final ReceitaRepository receitaRepository;
+    private final LancamentoFinanceiroRepository lancamentoFinanceiroRepository;
 
     public List<MateriaPrima> listarTodas() {
         return materiaPrimaRepository.findAll();
@@ -107,8 +112,25 @@ public class MateriaPrimaService {
 
         materiaPrima.setEstoqueAtual(novoEstoque);
         materiaPrimaRepository.save(materiaPrima);
+        movimentacao = movimentacaoRepository.save(movimentacao);
 
-        return movimentacaoRepository.save(movimentacao);
+        // Só lança despesa quando teve valor pago de verdade (uma compra) — entrada de
+        // AJUSTE/PRODUCAO sem valorPago não representa dinheiro saindo do caixa.
+        if (request.valorPago() != null) {
+            LancamentoFinanceiro lancamento = new LancamentoFinanceiro();
+            lancamento.setTipo(TipoLancamento.DESPESA);
+            lancamento.setCategoria("Compra de matéria-prima");
+            lancamento.setValor(request.valorPago());
+            lancamento.setDescricao("Compra de %s %s de %s".formatted(
+                    FormatoNumerico.semZerosDesnecessarios(request.quantidade()),
+                    materiaPrima.getUnidadeMedida(),
+                    materiaPrima.getNome()));
+            lancamento.setOrigem(OrigemLancamento.COMPRA);
+            lancamento.setOrigemId(movimentacao.getId());
+            lancamentoFinanceiroRepository.save(lancamento);
+        }
+
+        return movimentacao;
     }
 
     /**
