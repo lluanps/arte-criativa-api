@@ -7,6 +7,7 @@ import br.com.artecriativa.api.financeiro.TipoConta;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record ContaResponse(
@@ -20,9 +21,12 @@ public record ContaResponse(
         UUID grupoParcelamentoId,
         Integer numeroParcela,
         Integer totalParcelas,
-        Instant criadoEm
+        Instant criadoEm,
+        /** Itens de matéria-prima vinculados (ver {@code ContaRequest#itensMateriaPrima})
+         * — vazio pra qualquer conta comum, sem compra vinculada. */
+        List<ItemMateriaPrimaCompraResponse> itensMateriaPrima
 ) {
-    public static ContaResponse de(Conta conta) {
+    public static ContaResponse de(Conta conta, List<ItemMateriaPrimaCompraResponse> itensMateriaPrima) {
         return new ContaResponse(
                 conta.getId(),
                 conta.getTipo(),
@@ -34,7 +38,8 @@ public record ContaResponse(
                 conta.getGrupoParcelamentoId(),
                 conta.getNumeroParcela(),
                 conta.getTotalParcelas(),
-                conta.getCriadoEm()
+                conta.getCriadoEm(),
+                itensMateriaPrima
         );
     }
 }

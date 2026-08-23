@@ -29,34 +29,34 @@ public class ContaController {
     @GetMapping
     public List<ContaResponse> listar(@RequestParam(required = false) TipoConta tipo) {
         List<Conta> contas = tipo != null ? contaService.listarPorTipo(tipo) : contaService.listarTodas();
-        return contas.stream().map(ContaResponse::de).toList();
+        return contas.stream().map(contaService::paraResponse).toList();
     }
 
     @GetMapping("/{id}")
     public ContaResponse buscar(@PathVariable Long id) {
-        return ContaResponse.de(contaService.buscarPorId(id));
+        return contaService.paraResponse(contaService.buscarPorId(id));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ContaResponse criar(@Valid @RequestBody ContaRequest request) {
-        return ContaResponse.de(contaService.criar(request));
+        return contaService.paraResponse(contaService.criar(request));
     }
 
     @PostMapping("/parceladas")
     @ResponseStatus(HttpStatus.CREATED)
     public List<ContaResponse> criarParcelada(@Valid @RequestBody ContaParceladaRequest request) {
-        return contaService.criarParcelada(request).stream().map(ContaResponse::de).toList();
+        return contaService.criarParcelada(request).stream().map(contaService::paraResponse).toList();
     }
 
     @PutMapping("/{id}")
     public ContaResponse atualizar(@PathVariable Long id, @Valid @RequestBody ContaRequest request) {
-        return ContaResponse.de(contaService.atualizar(id, request));
+        return contaService.paraResponse(contaService.atualizar(id, request));
     }
 
     @PostMapping("/{id}/pagar")
     public ContaResponse marcarComoPaga(@PathVariable Long id) {
-        return ContaResponse.de(contaService.marcarComoPaga(id));
+        return contaService.paraResponse(contaService.marcarComoPaga(id));
     }
 
     @DeleteMapping("/{id}")

@@ -32,6 +32,12 @@ public class GlobalExceptionHandler {
                 .body(new ErroResposta(Instant.now(), HttpStatus.UNPROCESSABLE_ENTITY.value(), ex.getMessage(), null));
     }
 
+    @ExceptionHandler(ConflitoOperacaoException.class)
+    public ResponseEntity<ErroResposta> tratarConflitoOperacao(ConflitoOperacaoException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErroResposta(Instant.now(), HttpStatus.CONFLICT.value(), ex.getMessage(), null));
+    }
+
     /**
      * Violação de constraint do banco. O caso mais comum é uma FK ao tentar excluir um
      * produto/matéria-prima que já tem movimentações, vendas, receita ou tutorial

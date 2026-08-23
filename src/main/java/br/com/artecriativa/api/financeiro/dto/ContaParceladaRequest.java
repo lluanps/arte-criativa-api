@@ -1,6 +1,7 @@
 package br.com.artecriativa.api.financeiro.dto;
 
 import br.com.artecriativa.api.financeiro.TipoConta;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -8,6 +9,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Registra uma conta parcelada de uma vez: gera {@code quantidadeParcelas} contas
@@ -26,6 +28,10 @@ public record ContaParceladaRequest(
         @DecimalMin(value = "0.0", inclusive = false, message = "valor total deve ser maior que zero") BigDecimal valorTotal,
         @NotNull(message = "quantidade de parcelas é obrigatória")
         @Min(value = 2, message = "quantidade de parcelas deve ser pelo menos 2 (pra 1x, use uma conta normal)") Integer quantidadeParcelas,
-        @NotNull(message = "vencimento da primeira parcela é obrigatório") LocalDate primeiroVencimento
+        @NotNull(message = "vencimento da primeira parcela é obrigatório") LocalDate primeiroVencimento,
+        /** Ver javadoc de {@code ContaRequest#itensMateriaPrima} — aqui os itens ficam
+         * vinculados ao grupo de parcelamento inteiro (não a uma parcela específica), e a
+         * soma tem que bater com {@link #valorTotal}, não com o valor de uma parcela. */
+        @Valid List<ItemMateriaPrimaCompraRequest> itensMateriaPrima
 ) {
 }

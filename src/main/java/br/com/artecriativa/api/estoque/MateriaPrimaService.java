@@ -10,10 +10,12 @@ import br.com.artecriativa.api.estoque.dto.MateriaPrimaAtualizacaoRequest;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaResponse;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
+import br.com.artecriativa.api.common.ConflitoOperacaoException;
 import br.com.artecriativa.api.financeiro.LancamentoFinanceiro;
 import br.com.artecriativa.api.financeiro.LancamentoFinanceiroRepository;
 import br.com.artecriativa.api.financeiro.OrigemLancamento;
 import br.com.artecriativa.api.financeiro.TipoLancamento;
+import br.com.artecriativa.api.financeiro.dto.ItemMateriaPrimaCompraResponse;
 import br.com.artecriativa.api.producao.ReceitaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +29,7 @@ import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -181,6 +184,102 @@ public class MateriaPrimaService {
         }
 
         return movimentacao;
+    }
+
+    /**
+     * Registra a entrada de uma compra de matéria-prima que já nasceu vinculada a uma
+     * {@link br.com.artecriativa.api.financeiro.Conta} (ver {@code ContaService}) — mesma
+     * lógica de estoque/custo médio ponderado de {@link #registrarMovimentacao}, motivo
+     * COMPRA, mas <b>sem</b> chamar {@link #lancarDespesaCompra}: a despesa nasce só
+     * quando a conta é paga (via {@code ContaService#sincronizarLancamento}), senão a
+     * mesma compra apareceria duas vezes no Financeiro. Exatamente um entre
+     * {@code contaId}/{@code grupoParcelamentoId} deve vir preenchido — o outro nulo.
+     */
+    @Transactional
+    public void registrarEntradaVinculadaAConta(Long materiaPrimaId, BigDecimal quantidade, BigDecimal valor,
+                                                  Long contaId, UUID grupoParcelamentoId) {
+        MateriaPrima materiaPrima = buscarPorId(materiaPrimaId);
+        BigDecimal estoqueAntes = materiaPrima.getEstoqueAtual();
+        BigDecimal custoUnitarioApurado = valor.divide(quantidade, 4, RoundingMode.HALF_UP);
+        materiaPrima.setCustoUnitario(
+                custoMedioPonderado(estoqueAntes, materiaPrima.getCustoUnitario(), quantidade, custoUnitarioApurado));
+        materiaPrima.setEstoqueAtual(estoqueAntes.add(quantidade));
+        materiaPrimaRepository.save(materiaPrima);
+
+        MovimentacaoMateriaPrima movimentacao = new MovimentacaoMateriaPrima();
+        movimentacao.setMateriaPrima(materiaPrima);
+        movimentacao.setTipo(TipoMovimentacao.ENTRADA);
+        movimentacao.setMotivo(MotivoMovimentacaoMateriaPrima.COMPRA);
+        movimentacao.setQuantidade(quantidade);
+        movimentacao.setValorPago(valor);
+        movimentacao.setCustoUnitarioApurado(custoUnitarioApurado);
+        movimentacao.setContaId(contaId);
+        movimentacao.setGrupoParcelamentoId(grupoParcelamentoId);
+        movimentacao.setObservacao("Compra vinculada à conta"
+                + (grupoParcelamentoId != null ? " parcelada" : " #" + contaId));
+        movimentacaoRepository.save(movimentacao);
+    }
+
+    /** Compras de matéria-prima vinculadas a esta conta/grupo (ver
+     * {@link #registrarEntradaVinculadaAConta}) — usado pra montar
+     * {@code ContaResponse#itensMateriaPrima}. Vazio pra qualquer conta comum. */
+    public List<ItemMateriaPrimaCompraResponse> buscarItensDeConta(Long contaId, UUID grupoParcelamentoId) {
+        List<MovimentacaoMateriaPrima> movimentacoes = grupoParcelamentoId != null
+                ? movimentacaoRepository.findByGrupoParcelamentoId(grupoParcelamentoId)
+                : movimentacaoRepository.findByContaId(contaId);
+        return movimentacoes.stream()
+                .map(m -> new ItemMateriaPrimaCompraResponse(
+                        m.getMateriaPrima().getId(), m.getMateriaPrima().getNome(), m.getQuantidade(), m.getValorPago()))
+                .toList();
+    }
+
+    /** Se essa conta/grupo tem alguma compra de matéria-prima vinculada — usado pra
+     * bloquear edição de valor em {@code ContaService#atualizar}. */
+    public boolean existeCompraVinculada(Long contaId, UUID grupoParcelamentoId) {
+        return grupoParcelamentoId != null
+                ? movimentacaoRepository.existsByGrupoParcelamentoId(grupoParcelamentoId)
+                : movimentacaoRepository.existsByContaId(contaId);
+    }
+
+    /** Desfaz (decrementa o estoque de) todas as compras vinculadas a uma conta AVULSA
+     * — chamado por {@code ContaService#excluir}. Não mexe no custo unitário médio (não
+     * dá pra reverter uma média ponderada com precisão depois de misturada com outras
+     * entradas); só o estoque, como pedido. */
+    @Transactional
+    public void estornarComprasVinculadasAConta(Long contaId) {
+        estornarMovimentacoes(movimentacaoRepository.findByContaId(contaId));
+    }
+
+    /** Mesma ideia de {@link #estornarComprasVinculadasAConta}, pro grupo inteiro de uma
+     * conta parcelada — chamado só quando a última parcela do grupo está sendo excluída. */
+    @Transactional
+    public void estornarComprasVinculadasAGrupo(UUID grupoParcelamentoId) {
+        estornarMovimentacoes(movimentacaoRepository.findByGrupoParcelamentoId(grupoParcelamentoId));
+    }
+
+    private void estornarMovimentacoes(List<MovimentacaoMateriaPrima> movimentacoes) {
+        if (movimentacoes.isEmpty()) {
+            return;
+        }
+        // Valida todas antes de aplicar qualquer estorno, pra não deixar a exclusão pela
+        // metade se uma das matérias-primas não tiver saldo suficiente.
+        for (MovimentacaoMateriaPrima movimentacao : movimentacoes) {
+            MateriaPrima materiaPrima = movimentacao.getMateriaPrima();
+            if (materiaPrima.getEstoqueAtual().compareTo(movimentacao.getQuantidade()) < 0) {
+                throw new ConflitoOperacaoException(
+                        ("Não é possível excluir: estornar essa compra deixaria o estoque de '%s' negativo "
+                                + "(disponível: %s, seria estornado: %s). Ajuste o estoque manualmente antes de excluir.")
+                                        .formatted(materiaPrima.getNome(),
+                                                FormatoNumerico.semZerosDesnecessarios(materiaPrima.getEstoqueAtual()),
+                                                FormatoNumerico.semZerosDesnecessarios(movimentacao.getQuantidade())));
+            }
+        }
+        for (MovimentacaoMateriaPrima movimentacao : movimentacoes) {
+            MateriaPrima materiaPrima = movimentacao.getMateriaPrima();
+            materiaPrima.setEstoqueAtual(materiaPrima.getEstoqueAtual().subtract(movimentacao.getQuantidade()));
+            materiaPrimaRepository.save(materiaPrima);
+            movimentacaoRepository.delete(movimentacao);
+        }
     }
 
     /** Compartilhado por {@link #criar} (primeira compra) e {@link #registrarMovimentacao}
