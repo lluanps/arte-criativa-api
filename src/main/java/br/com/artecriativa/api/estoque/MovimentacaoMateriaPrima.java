@@ -17,6 +17,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "movimentacoes_materia_prima")
@@ -58,6 +59,19 @@ public class MovimentacaoMateriaPrima {
 
     @Column(length = 500)
     private String observacao;
+
+    /** Preenchido quando esta entrada nasceu do registro de uma {@code Conta} avulsa a
+     * pagar (compra de matéria-prima em si) — não é uma FK de verdade (mesmo padrão de
+     * {@code LancamentoFinanceiro.origemId}/{@code Conta.grupoParcelamentoId}), só um
+     * id de correlação validado na aplicação. Nunca preenchido junto com
+     * {@link #grupoParcelamentoId}. */
+    @Column(name = "conta_id")
+    private Long contaId;
+
+    /** Mesma ideia de {@link #contaId}, mas quando a conta de origem é parcelada — o
+     * grupo inteiro, não uma parcela específica (ver {@code ContaService}). */
+    @Column(name = "grupo_parcelamento_id")
+    private UUID grupoParcelamentoId;
 
     @Column(name = "data_movimentacao", nullable = false)
     private Instant dataMovimentacao;

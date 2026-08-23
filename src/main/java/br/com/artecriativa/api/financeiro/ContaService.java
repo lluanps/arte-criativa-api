@@ -1,8 +1,11 @@
 package br.com.artecriativa.api.financeiro;
 
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
+import br.com.artecriativa.api.estoque.MateriaPrimaService;
 import br.com.artecriativa.api.financeiro.dto.ContaParceladaRequest;
 import br.com.artecriativa.api.financeiro.dto.ContaRequest;
+import br.com.artecriativa.api.financeiro.dto.ContaResponse;
+import br.com.artecriativa.api.financeiro.dto.ItemMateriaPrimaCompraRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,12 @@ import java.util.UUID;
  * {@link #marcarComoPaga} (e {@link #atualizar}/{@link #excluir} numa conta já paga)
  * são os únicos pontos que mexem em {@link LancamentoFinanceiro}, via
  * {@link #sincronizarLancamento}.
+ * <p>
+ * Uma conta a pagar também pode ser a própria compra de matéria-prima (ver
+ * {@link ContaRequest#itensMateriaPrima}) — nesse caso a entrada de estoque já é
+ * registrada na criação ({@link #criar}/{@link #criarParcelada}, via
+ * {@link MateriaPrimaService#registrarEntradaVinculadaAConta}), sem lançar despesa
+ * duplicada: a despesa nasce normalmente só quando a conta é paga.
  */
 @Service
 @RequiredArgsConstructor
@@ -28,6 +37,7 @@ public class ContaService {
 
     private final ContaRepository contaRepository;
     private final LancamentoFinanceiroRepository lancamentoFinanceiroRepository;
+    private final MateriaPrimaService materiaPrimaService;
 
     @Transactional(readOnly = true)
     public List<Conta> listarTodas() {
@@ -45,11 +55,30 @@ public class ContaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Conta não encontrada: " + id));
     }
 
+    /** Monta o {@link ContaResponse} completo, incluindo os itens de matéria-prima
+     * vinculados (vazio pra qualquer conta comum) — usado pelo controller em todos os
+     * endpoints, pra nunca esquecer de popular {@code itensMateriaPrima}. */
+    @Transactional(readOnly = true)
+    public ContaResponse paraResponse(Conta conta) {
+        return ContaResponse.de(conta, materiaPrimaService.buscarItensDeConta(conta.getId(), conta.getGrupoParcelamentoId()));
+    }
+
     @Transactional
     public Conta criar(ContaRequest request) {
+        List<ItemMateriaPrimaCompraRequest> itens = itensOuVazio(request.itensMateriaPrima());
+        if (!itens.isEmpty()) {
+            validarItens(itens, request.tipo(), request.valor());
+        }
+
         Conta conta = new Conta();
         aplicarRequest(conta, request);
-        return contaRepository.save(conta);
+        conta = contaRepository.save(conta);
+
+        for (ItemMateriaPrimaCompraRequest item : itens) {
+            materiaPrimaService.registrarEntradaVinculadaAConta(
+                    item.materiaPrimaId(), item.quantidade(), item.valor(), conta.getId(), null);
+        }
+        return conta;
     }
 
     /**
@@ -63,6 +92,11 @@ public class ContaService {
      */
     @Transactional
     public List<Conta> criarParcelada(ContaParceladaRequest request) {
+        List<ItemMateriaPrimaCompraRequest> itens = itensOuVazio(request.itensMateriaPrima());
+        if (!itens.isEmpty()) {
+            validarItens(itens, request.tipo(), request.valorTotal());
+        }
+
         int quantidade = request.quantidadeParcelas();
         BigDecimal valorParcela = request.valorTotal().divide(BigDecimal.valueOf(quantidade), 2, RoundingMode.DOWN);
         BigDecimal restoNaUltima = request.valorTotal().subtract(valorParcela.multiply(BigDecimal.valueOf(quantidade)));
@@ -80,17 +114,32 @@ public class ContaService {
             conta.setTotalParcelas(quantidade);
             parcelas.add(contaRepository.save(conta));
         }
+
+        // Uma vez só pro grupo inteiro (não por parcela) — o vínculo é com o
+        // parcelamento como um todo, não com uma parcela específica.
+        for (ItemMateriaPrimaCompraRequest item : itens) {
+            materiaPrimaService.registrarEntradaVinculadaAConta(
+                    item.materiaPrimaId(), item.quantidade(), item.valor(), null, grupoId);
+        }
         return parcelas;
     }
 
     /**
      * Edita a conta — permitido mesmo já paga (ex: corrigir um valor/descrição digitado
      * errado), caso em que o lançamento financeiro gerado por {@link #marcarComoPaga} é
-     * atualizado junto, senão ficaria com dado antigo divergente da conta.
+     * atualizado junto, senão ficaria com dado antigo divergente da conta. Numa conta
+     * vinculada a compra de matéria-prima, o valor não pode mudar (não dá pra saber qual
+     * item ajustar) — descrição/vencimento continuam livres.
      */
     @Transactional
     public Conta atualizar(Long id, ContaRequest request) {
         Conta conta = buscarPorId(id);
+        if (request.valor().compareTo(conta.getValor()) != 0
+                && materiaPrimaService.existeCompraVinculada(conta.getId(), conta.getGrupoParcelamentoId())) {
+            throw new IllegalStateException(
+                    "Não é possível editar o valor de uma conta vinculada a compra de matéria-prima; "
+                            + "exclua e crie novamente.");
+        }
         aplicarRequest(conta, request);
         conta = contaRepository.save(conta);
         sincronizarLancamento(conta);
@@ -112,12 +161,24 @@ public class ContaService {
 
     /** Remove também o lançamento financeiro gerado pelo pagamento, se a conta já
      * estava paga — senão a exclusão deixaria uma receita/despesa "fantasma" no
-     * Financeiro, sem a conta que a originou. */
+     * Financeiro, sem a conta que a originou. Se a conta tinha compra de matéria-prima
+     * vinculada, estorna o estoque também: numa avulsa, sempre; numa parcela de um
+     * grupo, só quando é a última parcela restante do grupo (o vínculo é com o grupo
+     * inteiro, não importa em que ordem as parcelas são excluídas). */
     @Transactional
     public void excluir(Long id) {
         Conta conta = buscarPorId(id);
         lancamentoFinanceiroRepository.findByOrigemAndOrigemId(OrigemLancamento.CONTA, id)
                 .ifPresent(lancamentoFinanceiroRepository::delete);
+
+        if (conta.getGrupoParcelamentoId() != null) {
+            if (contaRepository.countByGrupoParcelamentoId(conta.getGrupoParcelamentoId()) == 1) {
+                materiaPrimaService.estornarComprasVinculadasAGrupo(conta.getGrupoParcelamentoId());
+            }
+        } else {
+            materiaPrimaService.estornarComprasVinculadasAConta(id);
+        }
+
         contaRepository.delete(conta);
     }
 
@@ -126,6 +187,25 @@ public class ContaService {
         conta.setDescricao(request.descricao());
         conta.setValor(request.valor());
         conta.setVencimento(request.vencimento());
+    }
+
+    private static List<ItemMateriaPrimaCompraRequest> itensOuVazio(List<ItemMateriaPrimaCompraRequest> itens) {
+        return itens == null ? List.of() : itens;
+    }
+
+    private static void validarItens(List<ItemMateriaPrimaCompraRequest> itens, TipoConta tipo, BigDecimal valorConta) {
+        if (tipo != TipoConta.PAGAR) {
+            throw new IllegalStateException(
+                    "Itens de matéria-prima só podem ser vinculados a uma conta do tipo PAGAR.");
+        }
+        BigDecimal soma = itens.stream()
+                .map(ItemMateriaPrimaCompraRequest::valor)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (soma.compareTo(valorConta) != 0) {
+            throw new IllegalStateException(
+                    "A soma dos itens de matéria-prima (%s) não bate com o valor da conta (%s)."
+                            .formatted(soma.toPlainString(), valorConta.toPlainString()));
+        }
     }
 
     /**
