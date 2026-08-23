@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -49,6 +50,20 @@ public class GlobalExceptionHandler {
                         + "(ex: movimentações, vendas, receita ou tutorial)."
                 : "Não foi possível salvar: os dados informados violam uma restrição do banco "
                         + "(ex: valor duplicado ou combinação já existente). Confira os campos e tente novamente.";
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ErroResposta(Instant.now(), HttpStatus.CONFLICT.value(), mensagem, null));
+    }
+
+    /**
+     * Lock otimista (`@Version`): alguém já salvou esse mesmo registro entre a leitura
+     * e o save desta requisição (ex: duas movimentações de estoque quase simultâneas
+     * no mesmo produto/matéria-prima). Antes disso existir, essa corrida sobrescrevia
+     * em silêncio; agora responde 409 pra quem chamou tentar de novo.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErroResposta> tratarConflitoVersao(ObjectOptimisticLockingFailureException ex) {
+        String mensagem = "Este registro foi alterado por outra operação enquanto você estava "
+                + "editando. Recarregue e tente novamente.";
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ErroResposta(Instant.now(), HttpStatus.CONFLICT.value(), mensagem, null));
     }
