@@ -2,8 +2,10 @@ package br.com.artecriativa.api.estoque;
 
 import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.MensagemVinculo;
+import br.com.artecriativa.api.common.PaginaResponse;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
+import br.com.artecriativa.api.estoque.dto.MateriaPrimaResponse;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
 import br.com.artecriativa.api.financeiro.LancamentoFinanceiro;
 import br.com.artecriativa.api.financeiro.LancamentoFinanceiroRepository;
@@ -11,6 +13,9 @@ import br.com.artecriativa.api.financeiro.OrigemLancamento;
 import br.com.artecriativa.api.financeiro.TipoLancamento;
 import br.com.artecriativa.api.producao.ReceitaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +23,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,8 +34,28 @@ public class MateriaPrimaService {
     private final ReceitaRepository receitaRepository;
     private final LancamentoFinanceiroRepository lancamentoFinanceiroRepository;
 
+    private static final Map<String, String> CAMPOS_ORDENACAO = Map.of(
+            "nome", "nome",
+            "unidadeMedida", "unidadeMedida",
+            "custoUnitario", "custoUnitario",
+            "estoqueAtual", "estoqueAtual");
+
     public List<MateriaPrima> listarTodas() {
         return materiaPrimaRepository.findAll();
+    }
+
+    /** Busca paginada com filtros pra tela de listagem (ver {@link MateriaPrimaRepository#buscar}). */
+    public PaginaResponse<MateriaPrimaResponse> buscarPaginado(String busca, boolean estoqueBaixo, int pagina,
+                                                                 int tamanho, String ordenarPor, String direcao) {
+        String buscaNormalizada = (busca == null || busca.isBlank()) ? "" : busca.trim();
+        String campo = CAMPOS_ORDENACAO.getOrDefault(ordenarPor, "nome");
+        Sort.Direction dir = "desc".equalsIgnoreCase(direcao) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        int tamanhoValido = Math.min(Math.max(tamanho, 1), 100);
+        Pageable pageable = PageRequest.of(Math.max(pagina, 0), tamanhoValido, Sort.by(dir, campo));
+
+        return PaginaResponse.de(
+                materiaPrimaRepository.buscar(buscaNormalizada, estoqueBaixo, pageable),
+                MateriaPrimaResponse::de);
     }
 
     public MateriaPrima buscarPorId(Long id) {

@@ -34,7 +34,14 @@ public record ProdutoResponse(
                 produto.getMargemDesejadaPercentual(),
                 produto.getEstoqueAtual(),
                 produto.getEstoqueMinimo(),
-                produto.getFotosUrls(),
+                // List.copyOf força a leitura da coleção agora — em ProdutoRepository.buscar
+                // (paginação) fotosUrls é LAZY de propósito, e só ler a referência sem
+                // iterar (o que só um getFotosUrls() puro faz) não materializa: o proxy do
+                // Hibernate só inicializa no primeiro acesso de verdade (ex: iterar), e se
+                // isso acontecer só na hora do Jackson serializar (já fora da transação),
+                // estoura "could not initialize proxy - no Session". Em findAll()/findById()
+                // (fetch eager) isso é só uma cópia extra barata, sem efeito nenhum.
+                List.copyOf(produto.getFotosUrls()),
                 produto.isAtivo(),
                 produto.getCriadoEm(),
                 produto.getAtualizadoEm()

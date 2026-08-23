@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.estoque;
 
+import br.com.artecriativa.api.common.PaginaResponse;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaResponse;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,6 +31,22 @@ public class MateriaPrimaController {
     @GetMapping
     public List<MateriaPrimaResponse> listar() {
         return materiaPrimaService.listarTodas().stream().map(MateriaPrimaResponse::de).toList();
+    }
+
+    /**
+     * Busca paginada com filtros — usada pela tela de listagem de matérias-primas.
+     * Diferente de {@code listar()} acima (lista inteira, usada pelo seletor de
+     * matéria-prima em Fichas técnicas e pelo alerta de estoque baixo).
+     */
+    @GetMapping("/busca")
+    public PaginaResponse<MateriaPrimaResponse> buscar(
+            @RequestParam(required = false) String busca,
+            @RequestParam(defaultValue = "false") boolean estoqueBaixo,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "20") int tamanho,
+            @RequestParam(defaultValue = "nome") String ordenarPor,
+            @RequestParam(defaultValue = "asc") String direcao) {
+        return materiaPrimaService.buscarPaginado(busca, estoqueBaixo, pagina, tamanho, ordenarPor, direcao);
     }
 
     @GetMapping("/{id}")

@@ -4,15 +4,20 @@ import br.com.artecriativa.api.cadastros.Categoria;
 import br.com.artecriativa.api.cadastros.CategoriaRepository;
 import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.MensagemVinculo;
+import br.com.artecriativa.api.common.PaginaResponse;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
+import br.com.artecriativa.api.estoque.dto.ProdutoResponse;
 import br.com.artecriativa.api.ideias.IdeiaRepository;
 import br.com.artecriativa.api.producao.ProducaoRepository;
 import br.com.artecriativa.api.producao.ReceitaRepository;
 import br.com.artecriativa.api.tutoriais.TutorialRepository;
 import br.com.artecriativa.api.vendas.VendaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,8 +38,52 @@ public class ProdutoService {
     private final TutorialRepository tutorialRepository;
     private final IdeiaRepository ideiaRepository;
 
+    /** Campos aceitos em {@code ordenarPor} — mesmos nomes usados no front (ver
+     * CampoOrdenacao em app/estoque/produtos/page.tsx), mapeados pro caminho de
+     * propriedade JPA correspondente (ex: "categoriaNome" -> "categoria.nome"). Qualquer
+     * outro valor cai no padrão "nome", pra nunca lançar erro de propriedade inexistente
+     * por causa de um parâmetro de URL mal formado. */
+    private static final java.util.Map<String, String> CAMPOS_ORDENACAO = java.util.Map.of(
+            "nome", "nome",
+            "categoriaNome", "categoria.nome",
+            "volumeMl", "volumeMl",
+            "precoVenda", "precoVenda",
+            "estoqueAtual", "estoqueAtual");
+
     public List<Produto> listarTodos() {
         return produtoRepository.findAll();
+    }
+
+    /**
+     * Busca paginada com filtros pra tela de listagem (ver {@link ProdutoRepository#buscar}).
+     * {@code status} aceita "ativos"/"inativos"/"todos" (ou qualquer outra coisa, tratada
+     * como "todos") — vem como texto porque é assim que chega da URL, mais simples que um
+     * enum só pra isso.
+     * <p>
+     * {@code @Transactional} de propósito: o mapeamento pra {@code ProdutoResponse}
+     * acontece com a sessão ainda aberta, pra {@code fotosUrls} (lazy nessa query — ver
+     * javadoc de {@code ProdutoRepository.buscar}) conseguir carregar sem
+     * LazyInitializationException, mesmo com open-in-view=false.
+     */
+    @Transactional(readOnly = true)
+    public PaginaResponse<ProdutoResponse> buscarPaginado(String busca, Long categoriaId, String status,
+                                                            boolean estoqueBaixo, int pagina, int tamanho,
+                                                            String ordenarPor, String direcao) {
+        Boolean ativo = switch (status == null ? "" : status) {
+            case "ativos" -> Boolean.TRUE;
+            case "inativos" -> Boolean.FALSE;
+            default -> null;
+        };
+        // "" (nunca null) de propósito — ver javadoc de ProdutoRepository.buscar.
+        String buscaNormalizada = (busca == null || busca.isBlank()) ? "" : busca.trim();
+        String campo = CAMPOS_ORDENACAO.getOrDefault(ordenarPor, "nome");
+        Sort.Direction dir = "desc".equalsIgnoreCase(direcao) ? Sort.Direction.DESC : Sort.Direction.ASC;
+        int tamanhoValido = Math.min(Math.max(tamanho, 1), 100);
+        Pageable pageable = PageRequest.of(Math.max(pagina, 0), tamanhoValido, Sort.by(dir, campo));
+
+        return PaginaResponse.de(
+                produtoRepository.buscar(buscaNormalizada, categoriaId, ativo, estoqueBaixo, pageable),
+                ProdutoResponse::de);
     }
 
     public Produto buscarPorId(Long id) {

@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.estoque;
 
+import br.com.artecriativa.api.common.PaginaResponse;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoProdutoRequest;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoResponse;
 import br.com.artecriativa.api.estoque.dto.ProdutoRequest;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,6 +31,24 @@ public class ProdutoController {
     @GetMapping
     public List<ProdutoResponse> listar() {
         return produtoService.listarTodos().stream().map(ProdutoResponse::de).toList();
+    }
+
+    /**
+     * Busca paginada com filtros — usada pela tela de listagem de produtos. Diferente de
+     * {@code listar()} acima (que devolve tudo, usado pelos seletores de produto em
+     * Vendas/Fichas técnicas/Tutoriais e pelo alerta de estoque baixo).
+     */
+    @GetMapping("/busca")
+    public PaginaResponse<ProdutoResponse> buscar(
+            @RequestParam(required = false) String busca,
+            @RequestParam(required = false) Long categoriaId,
+            @RequestParam(defaultValue = "todos") String status,
+            @RequestParam(defaultValue = "false") boolean estoqueBaixo,
+            @RequestParam(defaultValue = "0") int pagina,
+            @RequestParam(defaultValue = "20") int tamanho,
+            @RequestParam(defaultValue = "nome") String ordenarPor,
+            @RequestParam(defaultValue = "asc") String direcao) {
+        return produtoService.buscarPaginado(busca, categoriaId, status, estoqueBaixo, pagina, tamanho, ordenarPor, direcao);
     }
 
     @GetMapping("/{id}")
