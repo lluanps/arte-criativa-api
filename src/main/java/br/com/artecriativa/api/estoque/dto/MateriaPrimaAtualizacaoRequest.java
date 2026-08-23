@@ -15,9 +15,9 @@ import java.math.BigDecimal;
  */
 public record MateriaPrimaAtualizacaoRequest(
         @NotBlank(message = "nome é obrigatório") String nome,
+        Long categoriaId,
         @NotBlank(message = "unidade de medida é obrigatória") String unidadeMedida,
         @DecimalMin(value = "0.0", message = "estoque mínimo não pode ser negativo") BigDecimal estoqueMinimo,
-        @DecimalMin(value = "0.0", message = "volume não pode ser negativo") BigDecimal volumeMl,
         String fornecedor
 ) {
     public MateriaPrimaAtualizacaoRequest {

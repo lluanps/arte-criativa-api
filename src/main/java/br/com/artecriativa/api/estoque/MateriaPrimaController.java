@@ -42,12 +42,13 @@ public class MateriaPrimaController {
     @GetMapping("/busca")
     public PaginaResponse<MateriaPrimaResponse> buscar(
             @RequestParam(required = false) String busca,
+            @RequestParam(required = false) Long categoriaId,
             @RequestParam(defaultValue = "false") boolean estoqueBaixo,
             @RequestParam(defaultValue = "0") int pagina,
             @RequestParam(defaultValue = "20") int tamanho,
             @RequestParam(defaultValue = "nome") String ordenarPor,
             @RequestParam(defaultValue = "asc") String direcao) {
-        return materiaPrimaService.buscarPaginado(busca, estoqueBaixo, pagina, tamanho, ordenarPor, direcao);
+        return materiaPrimaService.buscarPaginado(busca, categoriaId, estoqueBaixo, pagina, tamanho, ordenarPor, direcao);
     }
 
     @GetMapping("/{id}")

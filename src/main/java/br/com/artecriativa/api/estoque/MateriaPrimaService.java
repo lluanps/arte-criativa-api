@@ -1,5 +1,7 @@
 package br.com.artecriativa.api.estoque;
 
+import br.com.artecriativa.api.cadastros.CategoriaMateriaPrima;
+import br.com.artecriativa.api.cadastros.CategoriaMateriaPrimaRepository;
 import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.PaginaResponse;
@@ -34,6 +36,7 @@ public class MateriaPrimaService {
     private final MovimentacaoMateriaPrimaRepository movimentacaoRepository;
     private final ReceitaRepository receitaRepository;
     private final LancamentoFinanceiroRepository lancamentoFinanceiroRepository;
+    private final CategoriaMateriaPrimaRepository categoriaRepository;
 
     private static final Map<String, String> CAMPOS_ORDENACAO = Map.of(
             "nome", "nome",
@@ -46,8 +49,8 @@ public class MateriaPrimaService {
     }
 
     /** Busca paginada com filtros pra tela de listagem (ver {@link MateriaPrimaRepository#buscar}). */
-    public PaginaResponse<MateriaPrimaResponse> buscarPaginado(String busca, boolean estoqueBaixo, int pagina,
-                                                                 int tamanho, String ordenarPor, String direcao) {
+    public PaginaResponse<MateriaPrimaResponse> buscarPaginado(String busca, Long categoriaId, boolean estoqueBaixo,
+                                                                 int pagina, int tamanho, String ordenarPor, String direcao) {
         String buscaNormalizada = (busca == null || busca.isBlank()) ? "" : busca.trim();
         String campo = CAMPOS_ORDENACAO.getOrDefault(ordenarPor, "nome");
         Sort.Direction dir = "desc".equalsIgnoreCase(direcao) ? Sort.Direction.DESC : Sort.Direction.ASC;
@@ -55,7 +58,7 @@ public class MateriaPrimaService {
         Pageable pageable = PageRequest.of(Math.max(pagina, 0), tamanhoValido, Sort.by(dir, campo));
 
         return PaginaResponse.de(
-                materiaPrimaRepository.buscar(buscaNormalizada, estoqueBaixo, pageable),
+                materiaPrimaRepository.buscar(buscaNormalizada, categoriaId, estoqueBaixo, pageable),
                 MateriaPrimaResponse::de);
     }
 
@@ -75,8 +78,8 @@ public class MateriaPrimaService {
     @Transactional
     public MateriaPrima criar(MateriaPrimaRequest request) {
         MateriaPrima materiaPrima = new MateriaPrima();
-        aplicarMetadados(materiaPrima, request.nome(), request.unidadeMedida(),
-                request.estoqueMinimo(), request.volumeMl(), request.fornecedor());
+        aplicarMetadados(materiaPrima, request.nome(), request.categoriaId(), request.unidadeMedida(),
+                request.estoqueMinimo(), request.fornecedor());
 
         BigDecimal custoUnitario = request.valorPago().divide(request.quantidadeComprada(), 4, RoundingMode.HALF_UP);
         materiaPrima.setCustoUnitario(custoUnitario);
@@ -103,8 +106,8 @@ public class MateriaPrimaService {
     @Transactional
     public MateriaPrima atualizar(Long id, MateriaPrimaAtualizacaoRequest request) {
         MateriaPrima materiaPrima = buscarPorId(id);
-        aplicarMetadados(materiaPrima, request.nome(), request.unidadeMedida(),
-                request.estoqueMinimo(), request.volumeMl(), request.fornecedor());
+        aplicarMetadados(materiaPrima, request.nome(), request.categoriaId(), request.unidadeMedida(),
+                request.estoqueMinimo(), request.fornecedor());
         return materiaPrimaRepository.save(materiaPrima);
     }
 
@@ -217,12 +220,20 @@ public class MateriaPrimaService {
         return movimentacaoRepository.findByMateriaPrimaIdOrderByDataMovimentacaoDesc(materiaPrimaId);
     }
 
-    private void aplicarMetadados(MateriaPrima materiaPrima, String nome, String unidadeMedida,
-                                    BigDecimal estoqueMinimo, BigDecimal volumeMl, String fornecedor) {
+    private void aplicarMetadados(MateriaPrima materiaPrima, String nome, Long categoriaId, String unidadeMedida,
+                                    BigDecimal estoqueMinimo, String fornecedor) {
         materiaPrima.setNome(nome);
+        materiaPrima.setCategoria(buscarCategoria(categoriaId));
         materiaPrima.setUnidadeMedida(unidadeMedida);
         materiaPrima.setEstoqueMinimo(estoqueMinimo);
-        materiaPrima.setVolumeMl(volumeMl);
         materiaPrima.setFornecedor(fornecedor);
+    }
+
+    private CategoriaMateriaPrima buscarCategoria(Long categoriaId) {
+        if (categoriaId == null) {
+            return null;
+        }
+        return categoriaRepository.findById(categoriaId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria de matéria-prima não encontrada: " + categoriaId));
     }
 }

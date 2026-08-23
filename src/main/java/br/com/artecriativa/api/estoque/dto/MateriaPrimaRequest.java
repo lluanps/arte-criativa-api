@@ -19,13 +19,13 @@ import java.math.BigDecimal;
  */
 public record MateriaPrimaRequest(
         @NotBlank(message = "nome é obrigatório") String nome,
+        Long categoriaId,
         @NotBlank(message = "unidade de medida é obrigatória") String unidadeMedida,
         @NotNull(message = "quantidade comprada é obrigatória")
         @DecimalMin(value = "0.0", inclusive = false, message = "quantidade comprada deve ser maior que zero") BigDecimal quantidadeComprada,
         @NotNull(message = "valor pago é obrigatório")
         @DecimalMin(value = "0.0", inclusive = false, message = "valor pago deve ser maior que zero") BigDecimal valorPago,
         @DecimalMin(value = "0.0", message = "estoque mínimo não pode ser negativo") BigDecimal estoqueMinimo,
-        @DecimalMin(value = "0.0", message = "volume não pode ser negativo") BigDecimal volumeMl,
         String fornecedor
 ) {
     public MateriaPrimaRequest {

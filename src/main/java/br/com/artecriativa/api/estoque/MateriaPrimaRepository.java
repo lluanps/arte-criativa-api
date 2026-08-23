@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface MateriaPrimaRepository extends JpaRepository<MateriaPrima, Long> {
 
+    long countByCategoriaId(Long categoriaId);
+
     /**
      * Busca paginada com filtros opcionais — usada só pelo {@code GET /materias-primas/busca}
      * (listagem com busca/filtro/paginação de verdade); {@code findAll()} continua servindo
@@ -19,9 +21,11 @@ public interface MateriaPrimaRepository extends JpaRepository<MateriaPrima, Long
     @Query("""
             SELECT mp FROM MateriaPrima mp
             WHERE (:busca = '' OR LOWER(mp.nome) LIKE LOWER(CONCAT('%', :busca, '%')))
+              AND (:categoriaId IS NULL OR mp.categoria.id = :categoriaId)
               AND (:estoqueBaixo = FALSE OR mp.estoqueAtual <= mp.estoqueMinimo)
             """)
     Page<MateriaPrima> buscar(@Param("busca") String busca,
+                               @Param("categoriaId") Long categoriaId,
                                @Param("estoqueBaixo") boolean estoqueBaixo,
                                Pageable pageable);
 }
