@@ -50,6 +50,14 @@ public class Conta {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal valor;
 
+    /** Custos extras de uma compra vinculada a esta conta (ver
+     * {@code ContaRequest#itensMateriaPrima}) que não são de nenhuma matéria-prima
+     * específica — ex: frete, taxas. Não gera movimentação de estoque nenhuma, só entra
+     * na soma que precisa bater com {@link #valor} ({@code ContaService#validarItens}).
+     * Default 0 pra qualquer conta sem itens vinculados. */
+    @Column(name = "custos_extras", nullable = false, precision = 12, scale = 2)
+    private BigDecimal custosExtras = BigDecimal.ZERO;
+
     @Column(nullable = false)
     private LocalDate vencimento;
 

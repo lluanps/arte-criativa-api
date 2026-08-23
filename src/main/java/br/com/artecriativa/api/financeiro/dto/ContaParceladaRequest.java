@@ -30,8 +30,12 @@ public record ContaParceladaRequest(
         @Min(value = 2, message = "quantidade de parcelas deve ser pelo menos 2 (pra 1x, use uma conta normal)") Integer quantidadeParcelas,
         @NotNull(message = "vencimento da primeira parcela é obrigatório") LocalDate primeiroVencimento,
         /** Ver javadoc de {@code ContaRequest#itensMateriaPrima} — aqui os itens ficam
-         * vinculados ao grupo de parcelamento inteiro (não a uma parcela específica), e a
-         * soma tem que bater com {@link #valorTotal}, não com o valor de uma parcela. */
-        @Valid List<ItemMateriaPrimaCompraRequest> itensMateriaPrima
+         * vinculados ao grupo de parcelamento inteiro (não a uma parcela específica), e
+         * {@code soma(itens.valor) + custosExtras} tem que bater com {@link #valorTotal},
+         * não com o valor de uma parcela. */
+        @Valid List<ItemMateriaPrimaCompraRequest> itensMateriaPrima,
+        /** Ver javadoc de {@code ContaRequest#custosExtras} — rateado entre as parcelas
+         * do mesmo jeito que {@link #valorTotal} (resto do arredondamento na última). */
+        @DecimalMin(value = "0.0", message = "custos extras não pode ser negativo") BigDecimal custosExtras
 ) {
 }
