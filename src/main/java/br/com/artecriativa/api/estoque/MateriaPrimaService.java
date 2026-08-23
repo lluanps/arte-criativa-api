@@ -4,6 +4,7 @@ import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.PaginaResponse;
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
+import br.com.artecriativa.api.estoque.dto.MateriaPrimaAtualizacaoRequest;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaResponse;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
@@ -63,17 +64,47 @@ public class MateriaPrimaService {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Matéria-prima não encontrada: " + id));
     }
 
+    /**
+     * Criar é sempre "registrar a primeira compra" (ver javadoc de
+     * {@link MateriaPrimaRequest}) — nasce com custo unitário calculado
+     * (valorPago ÷ quantidadeComprada), estoque já preenchido, uma
+     * {@link MovimentacaoMateriaPrima} de COMPRA registrada pro histórico, e a
+     * despesa correspondente lançada no Financeiro. Mesma lógica de
+     * {@link #registrarMovimentacao}, só que aqui a matéria-prima ainda nem existe.
+     */
     @Transactional
     public MateriaPrima criar(MateriaPrimaRequest request) {
         MateriaPrima materiaPrima = new MateriaPrima();
-        aplicarRequest(materiaPrima, request);
-        return materiaPrimaRepository.save(materiaPrima);
+        aplicarMetadados(materiaPrima, request.nome(), request.unidadeMedida(),
+                request.estoqueMinimo(), request.volumeMl(), request.fornecedor());
+
+        BigDecimal custoUnitario = request.valorPago().divide(request.quantidadeComprada(), 4, RoundingMode.HALF_UP);
+        materiaPrima.setCustoUnitario(custoUnitario);
+        materiaPrima.setEstoqueAtual(request.quantidadeComprada());
+        materiaPrima = materiaPrimaRepository.save(materiaPrima);
+
+        MovimentacaoMateriaPrima movimentacao = new MovimentacaoMateriaPrima();
+        movimentacao.setMateriaPrima(materiaPrima);
+        movimentacao.setTipo(TipoMovimentacao.ENTRADA);
+        movimentacao.setMotivo(MotivoMovimentacaoMateriaPrima.COMPRA);
+        movimentacao.setQuantidade(request.quantidadeComprada());
+        movimentacao.setValorPago(request.valorPago());
+        movimentacao.setCustoUnitarioApurado(custoUnitario);
+        movimentacao.setObservacao("Compra inicial (cadastro da matéria-prima)");
+        movimentacao = movimentacaoRepository.save(movimentacao);
+
+        lancarDespesaCompra(materiaPrima, movimentacao, request.quantidadeComprada(), request.valorPago());
+
+        return materiaPrima;
     }
 
+    /** Só metadados — custo unitário e estoque não entram aqui de propósito, ver
+     * javadoc de {@link MateriaPrimaAtualizacaoRequest}. */
     @Transactional
-    public MateriaPrima atualizar(Long id, MateriaPrimaRequest request) {
+    public MateriaPrima atualizar(Long id, MateriaPrimaAtualizacaoRequest request) {
         MateriaPrima materiaPrima = buscarPorId(id);
-        aplicarRequest(materiaPrima, request);
+        aplicarMetadados(materiaPrima, request.nome(), request.unidadeMedida(),
+                request.estoqueMinimo(), request.volumeMl(), request.fornecedor());
         return materiaPrimaRepository.save(materiaPrima);
     }
 
@@ -143,20 +174,27 @@ public class MateriaPrimaService {
         // Só lança despesa quando teve valor pago de verdade (uma compra) — entrada de
         // AJUSTE/PRODUCAO sem valorPago não representa dinheiro saindo do caixa.
         if (request.valorPago() != null) {
-            LancamentoFinanceiro lancamento = new LancamentoFinanceiro();
-            lancamento.setTipo(TipoLancamento.DESPESA);
-            lancamento.setCategoria("Compra de matéria-prima");
-            lancamento.setValor(request.valorPago());
-            lancamento.setDescricao("Compra de %s %s de %s".formatted(
-                    FormatoNumerico.semZerosDesnecessarios(request.quantidade()),
-                    materiaPrima.getUnidadeMedida(),
-                    materiaPrima.getNome()));
-            lancamento.setOrigem(OrigemLancamento.COMPRA);
-            lancamento.setOrigemId(movimentacao.getId());
-            lancamentoFinanceiroRepository.save(lancamento);
+            lancarDespesaCompra(materiaPrima, movimentacao, request.quantidade(), request.valorPago());
         }
 
         return movimentacao;
+    }
+
+    /** Compartilhado por {@link #criar} (primeira compra) e {@link #registrarMovimentacao}
+     * (compras seguintes) — mesmo formato de despesa nos dois casos. */
+    private void lancarDespesaCompra(MateriaPrima materiaPrima, MovimentacaoMateriaPrima movimentacao,
+                                       BigDecimal quantidade, BigDecimal valorPago) {
+        LancamentoFinanceiro lancamento = new LancamentoFinanceiro();
+        lancamento.setTipo(TipoLancamento.DESPESA);
+        lancamento.setCategoria("Compra de matéria-prima");
+        lancamento.setValor(valorPago);
+        lancamento.setDescricao("Compra de %s %s de %s".formatted(
+                FormatoNumerico.semZerosDesnecessarios(quantidade),
+                materiaPrima.getUnidadeMedida(),
+                materiaPrima.getNome()));
+        lancamento.setOrigem(OrigemLancamento.COMPRA);
+        lancamento.setOrigemId(movimentacao.getId());
+        lancamentoFinanceiroRepository.save(lancamento);
     }
 
     /**
@@ -179,12 +217,12 @@ public class MateriaPrimaService {
         return movimentacaoRepository.findByMateriaPrimaIdOrderByDataMovimentacaoDesc(materiaPrimaId);
     }
 
-    private void aplicarRequest(MateriaPrima materiaPrima, MateriaPrimaRequest request) {
-        materiaPrima.setNome(request.nome());
-        materiaPrima.setUnidadeMedida(request.unidadeMedida());
-        materiaPrima.setCustoUnitario(request.custoUnitario());
-        materiaPrima.setEstoqueMinimo(request.estoqueMinimo());
-        materiaPrima.setVolumeMl(request.volumeMl());
-        materiaPrima.setFornecedor(request.fornecedor());
+    private void aplicarMetadados(MateriaPrima materiaPrima, String nome, String unidadeMedida,
+                                    BigDecimal estoqueMinimo, BigDecimal volumeMl, String fornecedor) {
+        materiaPrima.setNome(nome);
+        materiaPrima.setUnidadeMedida(unidadeMedida);
+        materiaPrima.setEstoqueMinimo(estoqueMinimo);
+        materiaPrima.setVolumeMl(volumeMl);
+        materiaPrima.setFornecedor(fornecedor);
     }
 }

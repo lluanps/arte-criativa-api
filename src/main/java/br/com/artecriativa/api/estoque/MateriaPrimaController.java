@@ -1,6 +1,7 @@
 package br.com.artecriativa.api.estoque;
 
 import br.com.artecriativa.api.common.PaginaResponse;
+import br.com.artecriativa.api.estoque.dto.MateriaPrimaAtualizacaoRequest;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaRequest;
 import br.com.artecriativa.api.estoque.dto.MateriaPrimaResponse;
 import br.com.artecriativa.api.estoque.dto.MovimentacaoMateriaPrimaRequest;
@@ -61,7 +62,7 @@ public class MateriaPrimaController {
     }
 
     @PutMapping("/{id}")
-    public MateriaPrimaResponse atualizar(@PathVariable Long id, @Valid @RequestBody MateriaPrimaRequest request) {
+    public MateriaPrimaResponse atualizar(@PathVariable Long id, @Valid @RequestBody MateriaPrimaAtualizacaoRequest request) {
         return MateriaPrimaResponse.de(materiaPrimaService.atualizar(id, request));
     }
 
