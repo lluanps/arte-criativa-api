@@ -27,6 +27,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -241,10 +243,8 @@ public class MateriaPrimaService {
                 : movimentacaoRepository.existsByContaId(contaId);
     }
 
-    /** Desfaz (decrementa o estoque de) todas as compras vinculadas a uma conta AVULSA
-     * — chamado por {@code ContaService#excluir}. Não mexe no custo unitário médio (não
-     * dá pra reverter uma média ponderada com precisão depois de misturada com outras
-     * entradas); só o estoque, como pedido. */
+    /** Desfaz (decrementa o estoque e reverte o custo unitário médio de) todas as
+     * compras vinculadas a uma conta AVULSA — chamado por {@code ContaService#excluir}. */
     @Transactional
     public void estornarComprasVinculadasAConta(Long contaId) {
         estornarMovimentacoes(movimentacaoRepository.findByContaId(contaId));
@@ -257,14 +257,37 @@ public class MateriaPrimaService {
         estornarMovimentacoes(movimentacaoRepository.findByGrupoParcelamentoId(grupoParcelamentoId));
     }
 
+    /**
+     * Reverte estoque e custo unitário médio das movimentações informadas — só quando
+     * seguro: cada uma tem que ser, no momento da exclusão, a movimentação MAIS RECENTE
+     * daquela matéria-prima. Se algo mais aconteceu depois (qualquer tipo de
+     * movimentação), o custo médio ponderado já foi "misturado" com esse evento
+     * seguinte e não dá pra desfazer com precisão — bloqueia nesse caso em vez de
+     * reverter parcialmente/errado (mesmo padrão conservador do bloqueio de estoque
+     * negativo logo abaixo).
+     */
     private void estornarMovimentacoes(List<MovimentacaoMateriaPrima> movimentacoes) {
         if (movimentacoes.isEmpty()) {
             return;
         }
-        // Valida todas antes de aplicar qualquer estorno, pra não deixar a exclusão pela
-        // metade se uma das matérias-primas não tiver saldo suficiente.
+
+        // Valida tudo antes de aplicar qualquer estorno, pra não deixar a exclusão pela
+        // metade. maiorIdNoLote ignora as próprias movimentações deste estorno na hora
+        // de checar "aconteceu algo depois" — senão uma conta com 2 itens da mesma
+        // matéria-prima se bloquearia sozinha.
+        Map<Long, Long> maiorIdNoLotePorMateriaPrima = new HashMap<>();
+        for (MovimentacaoMateriaPrima movimentacao : movimentacoes) {
+            maiorIdNoLotePorMateriaPrima.merge(movimentacao.getMateriaPrima().getId(), movimentacao.getId(), Math::max);
+        }
         for (MovimentacaoMateriaPrima movimentacao : movimentacoes) {
             MateriaPrima materiaPrima = movimentacao.getMateriaPrima();
+            Long maiorIdNoLote = maiorIdNoLotePorMateriaPrima.get(materiaPrima.getId());
+            if (movimentacaoRepository.existsByMateriaPrimaIdAndIdGreaterThan(materiaPrima.getId(), maiorIdNoLote)) {
+                throw new ConflitoOperacaoException(
+                        ("Não é possível excluir: já houve outra movimentação de '%s' depois desta compra — "
+                                + "o custo unitário médio não pode ser revertido com segurança nesse caso.")
+                                        .formatted(materiaPrima.getNome()));
+            }
             if (materiaPrima.getEstoqueAtual().compareTo(movimentacao.getQuantidade()) < 0) {
                 throw new ConflitoOperacaoException(
                         ("Não é possível excluir: estornar essa compra deixaria o estoque de '%s' negativo "
@@ -274,9 +297,34 @@ public class MateriaPrimaService {
                                                 FormatoNumerico.semZerosDesnecessarios(movimentacao.getQuantidade())));
             }
         }
-        for (MovimentacaoMateriaPrima movimentacao : movimentacoes) {
+
+        // Desfaz da mais nova pra mais velha -- importante se a mesma matéria-prima
+        // aparecer mais de uma vez neste mesmo estorno, senão a segunda reversão usaria
+        // um custo unitário já parcialmente revertido como "atual".
+        List<MovimentacaoMateriaPrima> emOrdemReversa = movimentacoes.stream()
+                .sorted(Comparator.comparing(MovimentacaoMateriaPrima::getId).reversed())
+                .toList();
+        for (MovimentacaoMateriaPrima movimentacao : emOrdemReversa) {
             MateriaPrima materiaPrima = movimentacao.getMateriaPrima();
-            materiaPrima.setEstoqueAtual(materiaPrima.getEstoqueAtual().subtract(movimentacao.getQuantidade()));
+            BigDecimal estoqueDepois = materiaPrima.getEstoqueAtual();
+            BigDecimal estoqueAntes = estoqueDepois.subtract(movimentacao.getQuantidade());
+            materiaPrima.setEstoqueAtual(estoqueAntes);
+
+            if (estoqueAntes.compareTo(BigDecimal.ZERO) == 0) {
+                // Não tinha nada antes desta entrada (era a primeira) -- com estoque 0 o
+                // custo médio anterior tinha peso zero na fórmula, então não tem "antes"
+                // pra recuperar; zera, coerente com o padrão da entidade.
+                materiaPrima.setCustoUnitario(BigDecimal.ZERO);
+            } else if (movimentacao.getCustoUnitarioApurado() != null) {
+                // Inverte exatamente a média ponderada aplicada na hora da entrada --
+                // seguro porque acabamos de garantir (validação acima) que nada mudou
+                // nesta matéria-prima desde então.
+                BigDecimal custoAntes = materiaPrima.getCustoUnitario().multiply(estoqueDepois)
+                        .subtract(movimentacao.getQuantidade().multiply(movimentacao.getCustoUnitarioApurado()))
+                        .divide(estoqueAntes, 4, RoundingMode.HALF_UP);
+                materiaPrima.setCustoUnitario(custoAntes);
+            }
+
             materiaPrimaRepository.save(materiaPrima);
             movimentacaoRepository.delete(movimentacao);
         }

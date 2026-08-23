@@ -17,4 +17,11 @@ public interface MovimentacaoMateriaPrimaRepository extends JpaRepository<Movime
     boolean existsByContaId(Long contaId);
 
     boolean existsByGrupoParcelamentoId(UUID grupoParcelamentoId);
+
+    /** Usado no estorno de uma compra vinculada a conta (ver
+     * {@code MateriaPrimaService#estornarMovimentacoes}) — se existe alguma
+     * movimentação MAIS NOVA que {@code id} pra essa matéria-prima, o custo médio
+     * ponderado não pode ser revertido com segurança (a média já foi "misturada" com
+     * o que aconteceu depois). */
+    boolean existsByMateriaPrimaIdAndIdGreaterThan(Long materiaPrimaId, Long id);
 }
