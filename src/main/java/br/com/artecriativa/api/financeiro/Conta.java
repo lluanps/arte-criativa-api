@@ -17,11 +17,17 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 /**
  * Conta a pagar ou a receber, com vencimento e status. O status ATRASADO não fica
  * armazenado de forma ingênua: é calculado em {@link #getStatusEfetivo()} sempre que uma
  * conta PENDENTE já passou do vencimento, sem depender de um job agendado.
+ * <p>
+ * Uma conta parcelada não é uma entidade à parte: {@link ContaService#criarParcelada}
+ * gera N linhas de {@code Conta} independentes (cada parcela paga/edita/exclui sozinha,
+ * do jeito que já funcionava antes) que só compartilham {@link #grupoParcelamentoId}
+ * pra saber que vieram da mesma compra.
  */
 @Entity
 @Table(name = "contas")
@@ -53,6 +59,16 @@ public class Conta {
 
     @Column(name = "pago_em")
     private Instant pagoEm;
+
+    /** Nulos nos 3 abaixo = conta avulsa (não veio de um parcelamento). */
+    @Column(name = "grupo_parcelamento_id")
+    private UUID grupoParcelamentoId;
+
+    @Column(name = "numero_parcela")
+    private Integer numeroParcela;
+
+    @Column(name = "total_parcelas")
+    private Integer totalParcelas;
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;
