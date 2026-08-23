@@ -67,7 +67,7 @@ public class ContaService {
     public Conta criar(ContaRequest request) {
         List<ItemMateriaPrimaCompraRequest> itens = itensOuVazio(request.itensMateriaPrima());
         if (!itens.isEmpty()) {
-            validarItens(itens, request.tipo(), request.valor());
+            validarItens(itens, request.tipo(), request.valor(), request.custosExtras());
         }
 
         Conta conta = new Conta();
@@ -94,12 +94,19 @@ public class ContaService {
     public List<Conta> criarParcelada(ContaParceladaRequest request) {
         List<ItemMateriaPrimaCompraRequest> itens = itensOuVazio(request.itensMateriaPrima());
         if (!itens.isEmpty()) {
-            validarItens(itens, request.tipo(), request.valorTotal());
+            validarItens(itens, request.tipo(), request.valorTotal(), request.custosExtras());
         }
 
         int quantidade = request.quantidadeParcelas();
         BigDecimal valorParcela = request.valorTotal().divide(BigDecimal.valueOf(quantidade), 2, RoundingMode.DOWN);
         BigDecimal restoNaUltima = request.valorTotal().subtract(valorParcela.multiply(BigDecimal.valueOf(quantidade)));
+
+        // Custos extras seguem o mesmo rateio de valorParcela (resto na última) — só
+        // pra guardar um registro coerente por parcela, a validação em si é sempre
+        // contra o total (ver validarItens).
+        BigDecimal custosExtras = request.custosExtras() == null ? BigDecimal.ZERO : request.custosExtras();
+        BigDecimal custosExtrasParcela = custosExtras.divide(BigDecimal.valueOf(quantidade), 2, RoundingMode.DOWN);
+        BigDecimal restoCustosExtrasNaUltima = custosExtras.subtract(custosExtrasParcela.multiply(BigDecimal.valueOf(quantidade)));
 
         UUID grupoId = UUID.randomUUID();
         List<Conta> parcelas = new ArrayList<>();
@@ -108,6 +115,7 @@ public class ContaService {
             conta.setTipo(request.tipo());
             conta.setDescricao("%s (parcela %d/%d)".formatted(request.descricao(), i, quantidade));
             conta.setValor(i == quantidade ? valorParcela.add(restoNaUltima) : valorParcela);
+            conta.setCustosExtras(i == quantidade ? custosExtrasParcela.add(restoCustosExtrasNaUltima) : custosExtrasParcela);
             conta.setVencimento(request.primeiroVencimento().plusMonths(i - 1L));
             conta.setGrupoParcelamentoId(grupoId);
             conta.setNumeroParcela(i);
@@ -187,24 +195,33 @@ public class ContaService {
         conta.setDescricao(request.descricao());
         conta.setValor(request.valor());
         conta.setVencimento(request.vencimento());
+        conta.setCustosExtras(request.custosExtras() == null ? BigDecimal.ZERO : request.custosExtras());
     }
 
     private static List<ItemMateriaPrimaCompraRequest> itensOuVazio(List<ItemMateriaPrimaCompraRequest> itens) {
         return itens == null ? List.of() : itens;
     }
 
-    private static void validarItens(List<ItemMateriaPrimaCompraRequest> itens, TipoConta tipo, BigDecimal valorConta) {
+    /** {@code soma(itens.valor) + custosExtras} tem que bater exato com o valor da
+     * conta (ou valor total, na parcelada) — mesma exigência de exatidão que já existe
+     * no rateio das parcelas. */
+    private static void validarItens(List<ItemMateriaPrimaCompraRequest> itens, TipoConta tipo, BigDecimal valorConta,
+                                       BigDecimal custosExtras) {
         if (tipo != TipoConta.PAGAR) {
             throw new IllegalStateException(
                     "Itens de matéria-prima só podem ser vinculados a uma conta do tipo PAGAR.");
         }
-        BigDecimal soma = itens.stream()
+        BigDecimal extras = custosExtras == null ? BigDecimal.ZERO : custosExtras;
+        BigDecimal somaItens = itens.stream()
                 .map(ItemMateriaPrimaCompraRequest::valor)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal soma = somaItens.add(extras);
         if (soma.compareTo(valorConta) != 0) {
             throw new IllegalStateException(
-                    "A soma dos itens de matéria-prima (%s) não bate com o valor da conta (%s)."
-                            .formatted(soma.toPlainString(), valorConta.toPlainString()));
+                    ("Os itens de matéria-prima (%s) + custos extras (%s) somam %s, que não bate com o valor "
+                            + "da conta (%s).")
+                            .formatted(somaItens.toPlainString(), extras.toPlainString(),
+                                    soma.toPlainString(), valorConta.toPlainString()));
         }
     }
 

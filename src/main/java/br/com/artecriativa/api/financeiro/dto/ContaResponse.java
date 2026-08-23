@@ -24,7 +24,9 @@ public record ContaResponse(
         Instant criadoEm,
         /** Itens de matéria-prima vinculados (ver {@code ContaRequest#itensMateriaPrima})
          * — vazio pra qualquer conta comum, sem compra vinculada. */
-        List<ItemMateriaPrimaCompraResponse> itensMateriaPrima
+        List<ItemMateriaPrimaCompraResponse> itensMateriaPrima,
+        /** Ver {@code ContaRequest#custosExtras} — 0 pra qualquer conta sem itens vinculados. */
+        BigDecimal custosExtras
 ) {
     public static ContaResponse de(Conta conta, List<ItemMateriaPrimaCompraResponse> itensMateriaPrima) {
         return new ContaResponse(
@@ -39,7 +41,8 @@ public record ContaResponse(
                 conta.getNumeroParcela(),
                 conta.getTotalParcelas(),
                 conta.getCriadoEm(),
-                itensMateriaPrima
+                itensMateriaPrima,
+                conta.getCustosExtras()
         );
     }
 }
