@@ -8,11 +8,12 @@ import java.time.Instant;
 public record MateriaPrimaResponse(
         Long id,
         String nome,
+        Long categoriaId,
+        String categoriaNome,
         String unidadeMedida,
         BigDecimal custoUnitario,
         BigDecimal estoqueAtual,
         BigDecimal estoqueMinimo,
-        BigDecimal volumeMl,
         String fornecedor,
         Instant criadoEm,
         Instant atualizadoEm
@@ -21,11 +22,12 @@ public record MateriaPrimaResponse(
         return new MateriaPrimaResponse(
                 materiaPrima.getId(),
                 materiaPrima.getNome(),
+                materiaPrima.getCategoria() != null ? materiaPrima.getCategoria().getId() : null,
+                materiaPrima.getCategoria() != null ? materiaPrima.getCategoria().getNome() : null,
                 materiaPrima.getUnidadeMedida(),
                 materiaPrima.getCustoUnitario(),
                 materiaPrima.getEstoqueAtual(),
                 materiaPrima.getEstoqueMinimo(),
-                materiaPrima.getVolumeMl(),
                 materiaPrima.getFornecedor(),
                 materiaPrima.getCriadoEm(),
                 materiaPrima.getAtualizadoEm()

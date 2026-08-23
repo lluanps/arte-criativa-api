@@ -1,13 +1,18 @@
 package br.com.artecriativa.api.financeiro;
 
 import br.com.artecriativa.api.common.RecursoNaoEncontradoException;
+import br.com.artecriativa.api.financeiro.dto.ContaParceladaRequest;
 import br.com.artecriativa.api.financeiro.dto.ContaRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Contas a pagar/receber. Diferente de {@code Venda}/{@code MateriaPrimaService}, o
@@ -45,6 +50,37 @@ public class ContaService {
         Conta conta = new Conta();
         aplicarRequest(conta, request);
         return contaRepository.save(conta);
+    }
+
+    /**
+     * Registra uma conta parcelada de uma vez: gera {@code quantidadeParcelas} contas
+     * independentes, uma por mês a partir de {@code primeiroVencimento}, cada uma já
+     * PENDENTE e paga/editável/excluível sozinha dali em diante — não existe uma
+     * entidade "parcelamento", só o {@code grupoParcelamentoId} compartilhado pra
+     * identificar que vieram da mesma compra. Divide {@code valorTotal} igualmente e
+     * joga o resto do arredondamento na última parcela, pra soma bater exatamente com
+     * o valor total informado.
+     */
+    @Transactional
+    public List<Conta> criarParcelada(ContaParceladaRequest request) {
+        int quantidade = request.quantidadeParcelas();
+        BigDecimal valorParcela = request.valorTotal().divide(BigDecimal.valueOf(quantidade), 2, RoundingMode.DOWN);
+        BigDecimal restoNaUltima = request.valorTotal().subtract(valorParcela.multiply(BigDecimal.valueOf(quantidade)));
+
+        UUID grupoId = UUID.randomUUID();
+        List<Conta> parcelas = new ArrayList<>();
+        for (int i = 1; i <= quantidade; i++) {
+            Conta conta = new Conta();
+            conta.setTipo(request.tipo());
+            conta.setDescricao("%s (parcela %d/%d)".formatted(request.descricao(), i, quantidade));
+            conta.setValor(i == quantidade ? valorParcela.add(restoNaUltima) : valorParcela);
+            conta.setVencimento(request.primeiroVencimento().plusMonths(i - 1L));
+            conta.setGrupoParcelamentoId(grupoId);
+            conta.setNumeroParcela(i);
+            conta.setTotalParcelas(quantidade);
+            parcelas.add(contaRepository.save(conta));
+        }
+        return parcelas;
     }
 
     /**

@@ -7,6 +7,7 @@ import br.com.artecriativa.api.financeiro.TipoConta;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record ContaResponse(
         Long id,
@@ -16,6 +17,9 @@ public record ContaResponse(
         LocalDate vencimento,
         StatusConta status,
         Instant pagoEm,
+        UUID grupoParcelamentoId,
+        Integer numeroParcela,
+        Integer totalParcelas,
         Instant criadoEm
 ) {
     public static ContaResponse de(Conta conta) {
@@ -27,6 +31,9 @@ public record ContaResponse(
                 conta.getVencimento(),
                 conta.getStatusEfetivo(),
                 conta.getPagoEm(),
+                conta.getGrupoParcelamentoId(),
+                conta.getNumeroParcela(),
+                conta.getTotalParcelas(),
                 conta.getCriadoEm()
         );
     }

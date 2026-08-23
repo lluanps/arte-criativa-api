@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.financeiro;
 
+import br.com.artecriativa.api.financeiro.dto.ContaParceladaRequest;
 import br.com.artecriativa.api.financeiro.dto.ContaRequest;
 import br.com.artecriativa.api.financeiro.dto.ContaResponse;
 import jakarta.validation.Valid;
@@ -40,6 +41,12 @@ public class ContaController {
     @ResponseStatus(HttpStatus.CREATED)
     public ContaResponse criar(@Valid @RequestBody ContaRequest request) {
         return ContaResponse.de(contaService.criar(request));
+    }
+
+    @PostMapping("/parceladas")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<ContaResponse> criarParcelada(@Valid @RequestBody ContaParceladaRequest request) {
+        return contaService.criarParcelada(request).stream().map(ContaResponse::de).toList();
     }
 
     @PutMapping("/{id}")
