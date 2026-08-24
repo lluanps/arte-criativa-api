@@ -14,7 +14,8 @@ public record MateriaPrimaResponse(
         BigDecimal custoUnitario,
         BigDecimal estoqueAtual,
         BigDecimal estoqueMinimo,
-        String fornecedor,
+        Long fornecedorId,
+        String fornecedorNome,
         Instant criadoEm,
         Instant atualizadoEm
 ) {
@@ -28,7 +29,8 @@ public record MateriaPrimaResponse(
                 materiaPrima.getCustoUnitario(),
                 materiaPrima.getEstoqueAtual(),
                 materiaPrima.getEstoqueMinimo(),
-                materiaPrima.getFornecedor(),
+                materiaPrima.getFornecedor() != null ? materiaPrima.getFornecedor().getId() : null,
+                materiaPrima.getFornecedor() != null ? materiaPrima.getFornecedor().getNome() : null,
                 materiaPrima.getCriadoEm(),
                 materiaPrima.getAtualizadoEm()
         );

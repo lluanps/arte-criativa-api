@@ -1,6 +1,7 @@
 package br.com.artecriativa.api.estoque;
 
 import br.com.artecriativa.api.cadastros.CategoriaMateriaPrima;
+import br.com.artecriativa.api.cadastros.Fornecedor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -55,8 +56,12 @@ public class MateriaPrima {
     @Column(name = "estoque_minimo", nullable = false, precision = 12, scale = 3)
     private BigDecimal estoqueMinimo = BigDecimal.ZERO;
 
-    @Column(length = 150)
-    private String fornecedor;
+    /** Antes era texto livre (coluna {@code fornecedor}) — virou cadastro de verdade
+     * (ver {@link Fornecedor}) pra poder consultar "o que compro de quem" e corrigir o
+     * nome num lugar só sem quebrar o vínculo com o histórico. */
+    @ManyToOne
+    @JoinColumn(name = "fornecedor_id")
+    private Fornecedor fornecedor;
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;

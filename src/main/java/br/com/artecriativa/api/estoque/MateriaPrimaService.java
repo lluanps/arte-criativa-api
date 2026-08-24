@@ -2,6 +2,8 @@ package br.com.artecriativa.api.estoque;
 
 import br.com.artecriativa.api.cadastros.CategoriaMateriaPrima;
 import br.com.artecriativa.api.cadastros.CategoriaMateriaPrimaRepository;
+import br.com.artecriativa.api.cadastros.Fornecedor;
+import br.com.artecriativa.api.cadastros.FornecedorRepository;
 import br.com.artecriativa.api.common.FormatoNumerico;
 import br.com.artecriativa.api.common.MensagemVinculo;
 import br.com.artecriativa.api.common.PaginaResponse;
@@ -42,6 +44,7 @@ public class MateriaPrimaService {
     private final ReceitaRepository receitaRepository;
     private final LancamentoFinanceiroRepository lancamentoFinanceiroRepository;
     private final CategoriaMateriaPrimaRepository categoriaRepository;
+    private final FornecedorRepository fornecedorRepository;
 
     private static final Map<String, String> CAMPOS_ORDENACAO = Map.of(
             "nome", "nome",
@@ -84,7 +87,7 @@ public class MateriaPrimaService {
     public MateriaPrima criar(MateriaPrimaRequest request) {
         MateriaPrima materiaPrima = new MateriaPrima();
         aplicarMetadados(materiaPrima, request.nome(), request.categoriaId(), request.unidadeMedida(),
-                request.estoqueMinimo(), request.fornecedor());
+                request.estoqueMinimo(), request.fornecedorId());
 
         BigDecimal custoUnitario = request.valorPago().divide(request.quantidadeComprada(), 4, RoundingMode.HALF_UP);
         materiaPrima.setCustoUnitario(custoUnitario);
@@ -112,7 +115,7 @@ public class MateriaPrimaService {
     public MateriaPrima atualizar(Long id, MateriaPrimaAtualizacaoRequest request) {
         MateriaPrima materiaPrima = buscarPorId(id);
         aplicarMetadados(materiaPrima, request.nome(), request.categoriaId(), request.unidadeMedida(),
-                request.estoqueMinimo(), request.fornecedor());
+                request.estoqueMinimo(), request.fornecedorId());
         return materiaPrimaRepository.save(materiaPrima);
     }
 
@@ -368,12 +371,12 @@ public class MateriaPrimaService {
     }
 
     private void aplicarMetadados(MateriaPrima materiaPrima, String nome, Long categoriaId, String unidadeMedida,
-                                    BigDecimal estoqueMinimo, String fornecedor) {
+                                    BigDecimal estoqueMinimo, Long fornecedorId) {
         materiaPrima.setNome(nome);
         materiaPrima.setCategoria(buscarCategoria(categoriaId));
         materiaPrima.setUnidadeMedida(unidadeMedida);
         materiaPrima.setEstoqueMinimo(estoqueMinimo);
-        materiaPrima.setFornecedor(fornecedor);
+        materiaPrima.setFornecedor(buscarFornecedor(fornecedorId));
     }
 
     private CategoriaMateriaPrima buscarCategoria(Long categoriaId) {
@@ -382,5 +385,13 @@ public class MateriaPrimaService {
         }
         return categoriaRepository.findById(categoriaId)
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Categoria de matéria-prima não encontrada: " + categoriaId));
+    }
+
+    private Fornecedor buscarFornecedor(Long fornecedorId) {
+        if (fornecedorId == null) {
+            return null;
+        }
+        return fornecedorRepository.findById(fornecedorId)
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Fornecedor não encontrado: " + fornecedorId));
     }
 }
