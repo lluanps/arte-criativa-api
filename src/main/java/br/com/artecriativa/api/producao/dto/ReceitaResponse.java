@@ -7,6 +7,7 @@ import br.com.artecriativa.api.producao.ReceitaItem;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 
 public record ReceitaResponse(
@@ -31,7 +32,17 @@ public record ReceitaResponse(
         BigDecimal precoMercadoMin,
         BigDecimal precoMercadoMax,
         Instant precoMercadoAtualizadoEm,
-        Instant criadoEm
+        Instant criadoEm,
+        /** Quantas unidades do produto dá pra produzir agora, considerando o estoque
+         * atual de TODAS as matérias-primas da receita — o mínimo entre
+         * {@code itens[].unidadesProduziveisComEsteItem} (a matéria-prima mais escassa
+         * é quem manda). {@code null} só se não der pra calcular pra nenhum item
+         * (receita sem itens válidos). */
+        Long quantidadeProduzivelComEstoqueAtual,
+        /** Nome da matéria-prima que é o gargalo (a que gerou o mínimo acima) — ajuda a
+         * UI mostrar "falta X" em vez de só o número. {@code null} junto com o campo
+         * acima. */
+        String materiaPrimaLimitanteNome
 ) {
     /** Margem alvo usada quando o produto não tem uma própria configurada — 200% (preço
      * = 3x o custo de matéria-prima) é a referência comum pra artesanato, já que esse
@@ -58,6 +69,12 @@ public record ReceitaResponse(
                 .setScale(2, RoundingMode.HALF_UP);
 
         var categoria = receita.getProduto().getCategoria();
+        List<ReceitaItemResponse> itens = receita.getItens().stream().map(ReceitaItemResponse::de).toList();
+
+        ReceitaItemResponse itemLimitante = itens.stream()
+                .filter(item -> item.unidadesProduziveisComEsteItem() != null)
+                .min(Comparator.comparing(ReceitaItemResponse::unidadesProduziveisComEsteItem))
+                .orElse(null);
 
         return new ReceitaResponse(
                 receita.getId(),
@@ -65,7 +82,7 @@ public record ReceitaResponse(
                 receita.getProduto().getNome(),
                 receita.getNome(),
                 receita.getRendimento(),
-                receita.getItens().stream().map(ReceitaItemResponse::de).toList(),
+                itens,
                 custoProducao,
                 custoMaoDeObra,
                 custoEmbalagemOutros,
@@ -77,7 +94,9 @@ public record ReceitaResponse(
                 categoria != null ? categoria.getPrecoMercadoMin() : null,
                 categoria != null ? categoria.getPrecoMercadoMax() : null,
                 categoria != null ? categoria.getPrecoMercadoAtualizadoEm() : null,
-                receita.getCriadoEm()
+                receita.getCriadoEm(),
+                itemLimitante != null ? itemLimitante.unidadesProduziveisComEsteItem() : null,
+                itemLimitante != null ? itemLimitante.materiaPrimaNome() : null
         );
     }
 
