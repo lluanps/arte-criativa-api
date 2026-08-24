@@ -18,7 +18,7 @@ public record MateriaPrimaAtualizacaoRequest(
         Long categoriaId,
         @NotBlank(message = "unidade de medida é obrigatória") String unidadeMedida,
         @DecimalMin(value = "0.0", message = "estoque mínimo não pode ser negativo") BigDecimal estoqueMinimo,
-        String fornecedor
+        Long fornecedorId
 ) {
     public MateriaPrimaAtualizacaoRequest {
         if (estoqueMinimo == null) {

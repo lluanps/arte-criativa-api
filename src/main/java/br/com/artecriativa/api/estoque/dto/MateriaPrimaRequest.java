@@ -26,7 +26,7 @@ public record MateriaPrimaRequest(
         @NotNull(message = "valor pago é obrigatório")
         @DecimalMin(value = "0.0", inclusive = false, message = "valor pago deve ser maior que zero") BigDecimal valorPago,
         @DecimalMin(value = "0.0", message = "estoque mínimo não pode ser negativo") BigDecimal estoqueMinimo,
-        String fornecedor
+        Long fornecedorId
 ) {
     public MateriaPrimaRequest {
         if (estoqueMinimo == null) {

@@ -10,6 +10,8 @@ public interface MateriaPrimaRepository extends JpaRepository<MateriaPrima, Long
 
     long countByCategoriaId(Long categoriaId);
 
+    long countByFornecedorId(Long fornecedorId);
+
     /**
      * Busca paginada com filtros opcionais — usada só pelo {@code GET /materias-primas/busca}
      * (listagem com busca/filtro/paginação de verdade); {@code findAll()} continua servindo
