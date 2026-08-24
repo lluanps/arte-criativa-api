@@ -240,11 +240,23 @@ public class ContaService {
                 .findByOrigemAndOrigemId(OrigemLancamento.CONTA, conta.getId())
                 .orElseGet(LancamentoFinanceiro::new);
         lancamento.setTipo(conta.getTipo() == TipoConta.PAGAR ? TipoLancamento.DESPESA : TipoLancamento.RECEITA);
-        lancamento.setCategoria(conta.getTipo() == TipoConta.PAGAR ? "Conta a pagar" : "Conta a receber");
+        lancamento.setCategoria(categoriaDoLancamento(conta));
         lancamento.setValor(conta.getValor());
         lancamento.setDescricao(conta.getDescricao());
         lancamento.setOrigem(OrigemLancamento.CONTA);
         lancamento.setOrigemId(conta.getId());
         lancamentoFinanceiroRepository.save(lancamento);
+    }
+
+    /** "Compra de matéria-prima" (mesma categoria usada quando a compra vem direto de
+     * "Registrar movimentação") se a conta tem qualquer item de matéria-prima vinculado
+     * — mesmo que misturado com {@code custosExtras} (frete/ferramentas). Categoria
+     * genérica "Conta a pagar"/"Conta a receber" fica só pra conta sem nenhum vínculo
+     * (aluguel, assinatura, etc. — fora do escopo de matéria-prima). */
+    private String categoriaDoLancamento(Conta conta) {
+        if (materiaPrimaService.existeCompraVinculada(conta.getId(), conta.getGrupoParcelamentoId())) {
+            return "Compra de matéria-prima";
+        }
+        return conta.getTipo() == TipoConta.PAGAR ? "Conta a pagar" : "Conta a receber";
     }
 }
