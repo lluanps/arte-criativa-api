@@ -18,7 +18,16 @@ public record ReceitaItemResponse(
         BigDecimal custoUnitarioMateriaPrima,
         String unidadeMedidaMateriaPrima,
         /** quantidade (convertida pra unidade da matéria-prima) × custoUnitarioMateriaPrima. */
-        BigDecimal subtotalCusto
+        BigDecimal subtotalCusto,
+        /** Estoque atual desta matéria-prima, na unidade cadastrada nela — mesma unidade
+         * de {@link #custoUnitarioMateriaPrima}, pra dar contexto ao campo abaixo. */
+        BigDecimal estoqueAtualMateriaPrima,
+        /** Quantas unidades do PRODUTO dá pra produzir considerando só esta matéria-prima
+         * isoladamente (estoque atual ÷ consumo por unidade, arredondado pra baixo) — o
+         * "gargalo" desta matéria-prima específica. Ver
+         * {@code ReceitaResponse#quantidadeProduzivelComEstoqueAtual} pro mínimo entre
+         * todos os itens, que é o que realmente limita a receita como um todo. */
+        Long unidadesProduziveisComEsteItem
 ) {
     public static ReceitaItemResponse de(ReceitaItem item) {
         MateriaPrima materiaPrima = item.getMateriaPrima();
@@ -36,7 +45,9 @@ public record ReceitaItemResponse(
                 item.getQuantidade(),
                 materiaPrima.getCustoUnitario(),
                 materiaPrima.getUnidadeMedida(),
-                subtotal
+                subtotal,
+                materiaPrima.getEstoqueAtual(),
+                UnidadesProduziveis.calcular(materiaPrima.getEstoqueAtual(), quantidadeNaUnidadeDaMateriaPrima, item.getReceita().getRendimento())
         );
     }
 }
