@@ -1,6 +1,5 @@
-package br.com.artecriativa.api.cadastros;
+package br.com.artecriativa.api.empresa;
 
-import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -15,17 +14,18 @@ import lombok.Setter;
 import java.time.Instant;
 
 /**
- * Fornecedor de matéria-prima, usado como FK em
- * {@link br.com.artecriativa.api.estoque.MateriaPrima} no lugar do texto livre que
- * existia antes — permite consultar "o que compro de quem" e corrigir o nome num
- * lugar só sem quebrar o vínculo com o histórico.
+ * O tenant em si — o negócio de cada cliente do sistema. Não estende
+ * {@link EntidadeComEmpresa}: ela É a empresa, não pertence a uma.
+ * <p>
+ * Endereço fica como texto livre por ora (sem rua/cidade/UF/CEP separados) — só precisa
+ * virar estruturado quando (e se) entrar emissão de nota fiscal, fase futura.
  */
 @Entity
-@Table(name = "fornecedores")
+@Table(name = "empresas")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Fornecedor extends EntidadeComEmpresa {
+public class Empresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,11 +34,20 @@ public class Fornecedor extends EntidadeComEmpresa {
     @Column(nullable = false, length = 150)
     private String nome;
 
+    @Column(length = 150)
+    private String email;
+
     @Column(length = 30)
     private String telefone;
 
+    @Column(name = "cnpj_ou_cpf", length = 20)
+    private String cnpjOuCpf;
+
     @Column(columnDefinition = "TEXT")
-    private String observacao;
+    private String endereco;
+
+    @Column(name = "logotipo_url", length = 500)
+    private String logotipoUrl;
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;

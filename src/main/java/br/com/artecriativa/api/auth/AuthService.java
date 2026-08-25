@@ -41,8 +41,15 @@ public class AuthService {
         this.frontendUrl = frontendUrl;
     }
 
+    /**
+     * {@code empresaIdDoChamador} é sempre a empresa do usuário AUTENTICADO que está
+     * chamando (vem do {@code TenantContext} da requisição, via {@code AuthController}) —
+     * nunca de um campo em {@link RegisterRequest}. Não confiar em {@code empresaId} vindo
+     * de corpo de requisição é a regra de isolamento mais básica de todas: se viesse do
+     * request, qualquer chamada poderia criar usuário em empresa alheia.
+     */
     @Transactional
-    public AuthResponse registrar(RegisterRequest request) {
+    public AuthResponse registrar(RegisterRequest request, Long empresaIdDoChamador) {
         String email = request.email().trim().toLowerCase();
         if (usuarioRepository.existsByEmail(email)) {
             throw new IllegalStateException("Já existe um usuário cadastrado com esse e-mail");
@@ -52,6 +59,7 @@ public class AuthService {
         usuario.setNome(request.nome());
         usuario.setEmail(email);
         usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
+        usuario.setEmpresaId(empresaIdDoChamador);
         usuario = usuarioRepository.save(usuario);
 
         emailService.enviar(usuario.getEmail(), "Bem-vindo(a) à Arte Criativa",

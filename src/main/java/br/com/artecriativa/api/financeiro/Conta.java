@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.financeiro;
 
+import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -34,7 +35,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Conta {
+public class Conta extends EntidadeComEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
