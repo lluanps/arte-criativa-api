@@ -19,6 +19,13 @@ import java.time.Instant;
  * <p>
  * Endereço fica como texto livre por ora (sem rua/cidade/UF/CEP separados) — só precisa
  * virar estruturado quando (e se) entrar emissão de nota fiscal, fase futura.
+ * <p>
+ * {@link #ativa} é a "trava geral" da empresa — pensada pra quando existir plano/cobrança
+ * (fase ainda não desenhada) sem precisar de nenhuma coluna/tabela nova nesse dia: virar
+ * {@code false} já é suficiente pra bloquear login novo
+ * ({@code br.com.artecriativa.api.auth.AuthService#login}) sem excluir nada. De propósito
+ * **não** entra em {@code EmpresaRequest}/{@code PUT /api/empresa} — a própria empresa
+ * nunca pode se reativar/suspender sozinha.
  */
 @Entity
 @Table(name = "empresas")
@@ -48,6 +55,9 @@ public class Empresa {
 
     @Column(name = "logotipo_url", length = 500)
     private String logotipoUrl;
+
+    @Column(nullable = false)
+    private boolean ativa = true;
 
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;

@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Não tem {@code criar}/{@code excluir} de propósito: empresa nova nasce por SQL direto
- * (piloto manual, poucos clientes de confiança) até existir cadastro self-service — fase
- * futura, pausada. Só existe "a própria empresa", resolvida via {@link TenantContext}.
+ * Não tem {@code criar}/{@code excluir} aqui de propósito — criar uma empresa nova (com o
+ * primeiro usuário dela) é fluxo público, sem tenant resolvido ainda, então vive em
+ * {@code AuthService#registrarEmpresa} ({@code POST /api/auth/registrar-empresa}), não
+ * aqui. Este service só lida com "a própria empresa" de quem já está autenticado,
+ * resolvida via {@link TenantContext} — não tem {@code excluir} nenhum, empresa não se
+ * autoexclui.
  */
 @Service
 @RequiredArgsConstructor

@@ -9,7 +9,8 @@ public record EmpresaResponse(
         String telefone,
         String cnpjOuCpf,
         String endereco,
-        String logotipoUrl
+        String logotipoUrl,
+        boolean ativa
 ) {
     public static EmpresaResponse de(Empresa empresa) {
         return new EmpresaResponse(
@@ -19,7 +20,8 @@ public record EmpresaResponse(
                 empresa.getTelefone(),
                 empresa.getCnpjOuCpf(),
                 empresa.getEndereco(),
-                empresa.getLogotipoUrl()
+                empresa.getLogotipoUrl(),
+                empresa.isAtiva()
         );
     }
 }

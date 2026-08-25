@@ -18,9 +18,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Autenticação obrigatória em toda a API: todo endpoint de negócio exige JWT válido (ver
  * {@link JwtAuthFilter}), com exceção das rotas públicas de auth (login, esqueci-senha,
- * redefinir-senha) e de {@code /error}. {@code POST /api/auth/register} é a única de
- * {@code /api/auth} que também exige login — só um usuário já autenticado pode criar
- * outro usuário, pra evitar que qualquer pessoa na internet crie login no sistema.
+ * redefinir-senha, registrar-empresa) e de {@code /error}. {@code POST /api/auth/register}
+ * é a única de {@code /api/auth} que também exige login — cria outro usuário na MESMA
+ * empresa de quem chama, só um usuário já autenticado pode fazer isso. Já
+ * {@code POST /api/auth/registrar-empresa} é público de propósito: cria empresa e usuário
+ * juntos, não existe "quem chama" autenticado ainda pra ele nascer dentro.
  *
  * {@code /error} precisa ficar público porque uma rota inexistente ou com método errado
  * (ex: chamar {@code /materias-primas} em vez de {@code /api/materias-primas}) vira um
