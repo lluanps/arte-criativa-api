@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.producao;
 
+import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import br.com.artecriativa.api.estoque.Produto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -28,7 +29,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Producao {
+public class Producao extends EntidadeComEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.estoque;
 
+import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -24,7 +25,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @NoArgsConstructor
-public class MovimentacaoMateriaPrima {
+public class MovimentacaoMateriaPrima extends EntidadeComEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

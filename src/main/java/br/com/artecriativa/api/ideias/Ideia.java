@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.ideias;
 
+import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import br.com.artecriativa.api.estoque.Produto;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
@@ -35,7 +36,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Ideia {
+public class Ideia extends EntidadeComEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
