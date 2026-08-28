@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.cadastros;
 
+import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -24,7 +25,7 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Fornecedor {
+public class Fornecedor extends EntidadeComEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

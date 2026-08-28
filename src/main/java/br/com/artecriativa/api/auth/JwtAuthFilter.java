@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.auth;
 
+import br.com.artecriativa.api.empresa.TenantContext;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -18,9 +19,16 @@ import java.util.Optional;
 
 /**
  * Lê o header {@code Authorization: Bearer <token>}, valida o JWT e — se válido — popula
- * o {@link SecurityContextHolder} com o e-mail do usuário como principal. Não bloqueia a
- * requisição se o token estiver ausente ou inválido: quem decide se a rota exige
- * autenticação é o {@link SecurityConfig} (hoje, quase todas exigem).
+ * o {@link SecurityContextHolder} com o e-mail do usuário como principal, e o
+ * {@link TenantContext} com a empresa do usuário (claim {@code empresaId}) pro resto da
+ * requisição. Não bloqueia a requisição se o token estiver ausente ou inválido: quem
+ * decide se a rota exige autenticação é o {@link SecurityConfig} (hoje, quase todas
+ * exigem).
+ * <p>
+ * {@link TenantContext#clear()} SEMPRE roda em {@code finally}, envolvendo até o
+ * {@code filterChain.doFilter(...)} — o servidor reusa threads do pool entre requisições,
+ * então não limpar vazaria o tenant de uma requisição pra próxima que caísse na mesma
+ * thread.
  */
 @Component
 @RequiredArgsConstructor
@@ -34,11 +42,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request,
                                      @NonNull HttpServletResponse response,
                                      @NonNull FilterChain filterChain) throws ServletException, IOException {
-        extrairToken(request)
-                .flatMap(jwtService::validarEExtrairClaims)
-                .ifPresent(this::autenticar);
+        try {
+            extrairToken(request)
+                    .flatMap(jwtService::validarEExtrairClaims)
+                    .ifPresent(this::autenticar);
 
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
+        } finally {
+            TenantContext.clear();
+        }
     }
 
     private Optional<String> extrairToken(HttpServletRequest request) {
@@ -52,5 +64,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private void autenticar(Claims claims) {
         var authentication = new UsernamePasswordAuthenticationToken(claims.getSubject(), null, List.of());
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        TenantContext.set(claims.get("empresaId", Long.class));
     }
 }

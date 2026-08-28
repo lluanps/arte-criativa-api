@@ -2,6 +2,7 @@ package br.com.artecriativa.api.vendas;
 
 import br.com.artecriativa.api.cadastros.CanalVenda;
 import br.com.artecriativa.api.cadastros.Cliente;
+import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -32,7 +33,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Venda {
+public class Venda extends EntidadeComEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -14,9 +14,12 @@ import java.util.Date;
 import java.util.Optional;
 
 /**
- * Emite e valida os JWT usados pra autenticação. O token carrega o id e o e-mail do
- * usuário como claims; não há refresh token nessa primeira versão — ao expirar, o
- * usuário só faz login de novo.
+ * Emite e valida os JWT usados pra autenticação. O token carrega o id, nome e e-mail do
+ * usuário como claims, mais {@code empresaId} — usado pelo {@code JwtAuthFilter} pra
+ * popular o {@link br.com.artecriativa.api.empresa.TenantContext} da requisição. Não há
+ * refresh token nessa primeira versão — ao expirar, o usuário só faz login de novo (e
+ * tokens emitidos antes desta mudança, sem a claim, ficam inválidos pro tenant — usuário
+ * só precisa logar de novo).
  */
 @Service
 public class JwtService {
@@ -36,6 +39,7 @@ public class JwtService {
                 .subject(usuario.getEmail())
                 .claim("usuarioId", usuario.getId())
                 .claim("nome", usuario.getNome())
+                .claim("empresaId", usuario.getEmpresaId())
                 .issuedAt(Date.from(agora))
                 .expiration(Date.from(agora.plusSeconds(expiracaoMinutos * 60)))
                 .signWith(chave)

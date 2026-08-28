@@ -5,7 +5,10 @@ import br.com.artecriativa.api.auth.dto.EsqueciSenhaRequest;
 import br.com.artecriativa.api.auth.dto.LoginRequest;
 import br.com.artecriativa.api.auth.dto.RedefinirSenhaRequest;
 import br.com.artecriativa.api.auth.dto.RegisterRequest;
+import br.com.artecriativa.api.auth.dto.RegistroEmpresaRequest;
 import br.com.artecriativa.api.email.EmailService;
+import br.com.artecriativa.api.empresa.Empresa;
+import br.com.artecriativa.api.empresa.EmpresaRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -21,6 +24,7 @@ public class AuthService {
     private static final long EXPIRACAO_RESET_HORAS = 1;
 
     private final UsuarioRepository usuarioRepository;
+    private final EmpresaRepository empresaRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
@@ -28,12 +32,14 @@ public class AuthService {
     private final String frontendUrl;
 
     public AuthService(UsuarioRepository usuarioRepository,
+                        EmpresaRepository empresaRepository,
                         PasswordResetTokenRepository passwordResetTokenRepository,
                         PasswordEncoder passwordEncoder,
                         JwtService jwtService,
                         EmailService emailService,
                         @Value("${app.frontend-url}") String frontendUrl) {
         this.usuarioRepository = usuarioRepository;
+        this.empresaRepository = empresaRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -41,8 +47,46 @@ public class AuthService {
         this.frontendUrl = frontendUrl;
     }
 
+    /**
+     * Cadastro público self-service: cria a {@link Empresa} e o primeiro
+     * {@link Usuario} dela juntos, sem exigir login prévio (não existe empresa ainda pra
+     * autenticar contra). {@code @Transactional} garante que, se o e-mail já existir (ou
+     * colidir numa corrida — {@code usuarios.email} é {@code UNIQUE} no banco, vira
+     * {@code DataIntegrityViolationException}, 409), a empresa recém-criada não fica órfã.
+     */
     @Transactional
-    public AuthResponse registrar(RegisterRequest request) {
+    public AuthResponse registrarEmpresa(RegistroEmpresaRequest request) {
+        String email = request.email().trim().toLowerCase();
+        if (usuarioRepository.existsByEmail(email)) {
+            throw new IllegalStateException("Já existe um usuário cadastrado com esse e-mail");
+        }
+
+        Empresa empresa = new Empresa();
+        empresa.setNome(request.nomeEmpresa().trim());
+        empresa = empresaRepository.save(empresa);
+
+        Usuario usuario = new Usuario();
+        usuario.setNome(request.nome());
+        usuario.setEmail(email);
+        usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
+        usuario.setEmpresaId(empresa.getId());
+        usuario = usuarioRepository.save(usuario);
+
+        emailService.enviar(usuario.getEmail(), "Bem-vindo(a) à Arte Criativa",
+                htmlBoasVindas(usuario.getNome()));
+
+        return montarResposta(usuario);
+    }
+
+    /**
+     * {@code empresaIdDoChamador} é sempre a empresa do usuário AUTENTICADO que está
+     * chamando (vem do {@code TenantContext} da requisição, via {@code AuthController}) —
+     * nunca de um campo em {@link RegisterRequest}. Não confiar em {@code empresaId} vindo
+     * de corpo de requisição é a regra de isolamento mais básica de todas: se viesse do
+     * request, qualquer chamada poderia criar usuário em empresa alheia.
+     */
+    @Transactional
+    public AuthResponse registrar(RegisterRequest request, Long empresaIdDoChamador) {
         String email = request.email().trim().toLowerCase();
         if (usuarioRepository.existsByEmail(email)) {
             throw new IllegalStateException("Já existe um usuário cadastrado com esse e-mail");
@@ -52,6 +96,7 @@ public class AuthService {
         usuario.setNome(request.nome());
         usuario.setEmail(email);
         usuario.setSenhaHash(passwordEncoder.encode(request.senha()));
+        usuario.setEmpresaId(empresaIdDoChamador);
         usuario = usuarioRepository.save(usuario);
 
         emailService.enviar(usuario.getEmail(), "Bem-vindo(a) à Arte Criativa",
@@ -69,6 +114,16 @@ public class AuthService {
             // Mesma mensagem do "não encontrado" de propósito: não dar pista se o
             // e-mail existe ou não.
             throw new IllegalStateException("E-mail ou senha inválidos");
+        }
+
+        // Empresa.ativa é a trava geral (ver Empresa) -- aqui, não no JwtAuthFilter: um
+        // token já emitido continua valendo até expirar (24h por padrão), suspender só
+        // impede login novo. Suficiente pra hoje, sem precisar de mais uma consulta ao
+        // banco em toda requisição autenticada.
+        Empresa empresa = empresaRepository.findById(usuario.getEmpresaId())
+                .orElseThrow(() -> new IllegalStateException("E-mail ou senha inválidos"));
+        if (!empresa.isAtiva()) {
+            throw new IllegalStateException("Esta conta está suspensa. Entre em contato com o suporte.");
         }
 
         return montarResposta(usuario);

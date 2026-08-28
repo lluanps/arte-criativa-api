@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.producao;
 
+import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import br.com.artecriativa.api.estoque.Produto;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -31,7 +32,7 @@ import java.util.List;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Receita {
+public class Receita extends EntidadeComEmpresa {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
