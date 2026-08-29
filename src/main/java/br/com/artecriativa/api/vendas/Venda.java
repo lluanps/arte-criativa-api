@@ -6,6 +6,8 @@ import br.com.artecriativa.api.empresa.EntidadeComEmpresa;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -15,12 +17,14 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -56,6 +60,17 @@ public class Venda extends EntidadeComEmpresa {
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;
 
+    /** Null = venda de balcão, imediata. Preenchida = encomenda. */
+    @Column(name = "data_entrega_prevista")
+    private LocalDate dataEntregaPrevista;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private StatusVenda status = StatusVenda.ENTREGUE;
+
+    @Column(name = "valor_sinal", nullable = false, precision = 12, scale = 2)
+    private BigDecimal valorSinal = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "venda", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<VendaItem> itens = new ArrayList<>();
@@ -71,5 +86,21 @@ public class Venda extends EntidadeComEmpresa {
             item.setVenda(this);
             itens.add(item);
         }
+    }
+
+    @Transient
+    public BigDecimal getValorSaldo() {
+        return valorTotal.subtract(valorSinal);
+    }
+
+    /** Mesmo princípio de {@code Conta.getStatusEfetivo()}: calculado em leitura, sem
+     * scheduler. Diferente de {@code Conta} (só PAGO/PENDENTE), aqui o atraso pode
+     * ocorrer em qualquer estágio não-terminal — por isso é um transiente separado, não
+     * um valor a mais no enum. */
+    @Transient
+    public boolean isEntregaAtrasada() {
+        return dataEntregaPrevista != null
+                && status != StatusVenda.ENTREGUE
+                && dataEntregaPrevista.isBefore(LocalDate.now());
     }
 }

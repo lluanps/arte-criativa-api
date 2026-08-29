@@ -15,4 +15,9 @@ public interface LancamentoFinanceiroRepository extends JpaRepository<Lancamento
      * {@code LancamentoFinanceiroService.excluir} recusa mexer em lançamentos não-MANUAL
      * diretamente, então essa remoção em cascata é feita pelo módulo dono da origem. */
     Optional<LancamentoFinanceiro> findByOrigemAndOrigemId(OrigemLancamento origem, Long origemId);
+
+    /** Variante em lista de {@link #findByOrigemAndOrigemId} — uma encomenda (Venda) pode
+     * gerar até 2 lançamentos (sinal na criação + saldo na entrega), então a exclusão da
+     * venda precisa achar/remover todos, não só um. */
+    List<LancamentoFinanceiro> findAllByOrigemAndOrigemId(OrigemLancamento origem, Long origemId);
 }

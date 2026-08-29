@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -104,30 +105,97 @@ public class VendaService {
             valorTotal = valorTotal.add(item.getSubtotal());
         }
 
+        boolean encomenda = request.dataEntregaPrevista() != null;
+        BigDecimal valorSinal = request.valorSinal() != null ? request.valorSinal() : BigDecimal.ZERO;
+        if (!encomenda && valorSinal.compareTo(BigDecimal.ZERO) != 0) {
+            throw new IllegalStateException(
+                    "Sinal só é aplicável a encomenda com data de entrega informada.");
+        }
+        if (encomenda && valorSinal.compareTo(valorTotal) > 0) {
+            throw new IllegalStateException("Sinal não pode ser maior que o valor total da venda.");
+        }
+
         Venda venda = new Venda();
         venda.setCliente(cliente);
         venda.setCanal(canal);
         venda.setValorTotal(valorTotal);
         venda.adicionarItens(itens);
+        venda.setDataEntregaPrevista(request.dataEntregaPrevista());
+        venda.setValorSinal(valorSinal);
+        venda.setStatus(encomenda ? StatusVenda.PENDENTE : StatusVenda.ENTREGUE);
         venda = vendaRepository.save(venda);
 
-        LancamentoFinanceiro lancamento = new LancamentoFinanceiro();
-        lancamento.setTipo(TipoLancamento.RECEITA);
-        lancamento.setCategoria("Venda");
-        lancamento.setValor(valorTotal);
-        lancamento.setDescricao("Venda #" + venda.getId() + (cliente != null ? " - " + cliente.getNome() : ""));
-        lancamento.setOrigem(OrigemLancamento.VENDA);
-        lancamento.setOrigemId(venda.getId());
-        lancamentoFinanceiroRepository.save(lancamento);
+        if (!encomenda) {
+            criarLancamentoReceita(venda, cliente, valorTotal, "");
+        } else if (valorSinal.compareTo(BigDecimal.ZERO) > 0) {
+            criarLancamentoReceita(venda, cliente, valorSinal, " (sinal)");
+        }
 
         return venda;
     }
 
     /**
+     * Avança a encomenda pro próximo estágio de {@link StatusVenda}, em sequência
+     * (PENDENTE → EM_PRODUCAO → PRONTO → ENTREGUE). Só ao chegar em ENTREGUE é que o
+     * saldo (total - sinal já recebido) vira lançamento financeiro, se houver saldo —
+     * antes disso a encomenda pode estar com pagamento parcial ou nenhum ainda.
+     */
+    @Transactional
+    public Venda avancarStatus(Long id) {
+        Venda venda = buscarPorId(id);
+        if (venda.getDataEntregaPrevista() == null) {
+            throw new IllegalStateException("Venda #%d não é uma encomenda (sem data de entrega).".formatted(id));
+        }
+        if (venda.getStatus() == StatusVenda.ENTREGUE) {
+            throw new IllegalStateException("Encomenda #%d já está entregue.".formatted(id));
+        }
+
+        StatusVenda proximo = StatusVenda.values()[venda.getStatus().ordinal() + 1];
+        venda.setStatus(proximo);
+        venda = vendaRepository.save(venda);
+
+        if (proximo == StatusVenda.ENTREGUE) {
+            BigDecimal saldo = venda.getValorSaldo();
+            if (saldo.compareTo(BigDecimal.ZERO) > 0) {
+                criarLancamentoReceita(venda, venda.getCliente(), saldo, " (saldo na entrega)");
+            }
+        }
+
+        return venda;
+    }
+
+    /** Reagenda a data de entrega combinada — não muda o status nem o financeiro. */
+    @Transactional
+    public Venda reagendarEntrega(Long id, LocalDate novaData) {
+        Venda venda = buscarPorId(id);
+        if (venda.getDataEntregaPrevista() == null) {
+            throw new IllegalStateException("Venda #%d não é uma encomenda (sem data de entrega).".formatted(id));
+        }
+        if (venda.getStatus() == StatusVenda.ENTREGUE) {
+            throw new IllegalStateException("Encomenda #%d já está entregue.".formatted(id));
+        }
+        venda.setDataEntregaPrevista(novaData);
+        return vendaRepository.save(venda);
+    }
+
+    private void criarLancamentoReceita(Venda venda, Cliente cliente, BigDecimal valor, String sufixoDescricao) {
+        LancamentoFinanceiro lancamento = new LancamentoFinanceiro();
+        lancamento.setTipo(TipoLancamento.RECEITA);
+        lancamento.setCategoria("Venda");
+        lancamento.setValor(valor);
+        lancamento.setDescricao(
+                "Venda #" + venda.getId() + (cliente != null ? " - " + cliente.getNome() : "") + sufixoDescricao);
+        lancamento.setOrigem(OrigemLancamento.VENDA);
+        lancamento.setOrigemId(venda.getId());
+        lancamentoFinanceiroRepository.save(lancamento);
+    }
+
+    /**
      * Exclui a venda estornando os efeitos colaterais do registro original: devolve a
      * quantidade de cada item ao estoque (com uma movimentação de AJUSTE explicando o
-     * estorno) e remove o lançamento financeiro de receita gerado por ela. Sem isso, o
-     * estoque e o financeiro ficariam desalinhados com a realidade.
+     * estorno) e remove o(s) lançamento(s) financeiro(s) de receita gerado(s) por ela —
+     * uma encomenda pode ter até 2 (sinal + saldo). Sem isso, o estoque e o financeiro
+     * ficariam desalinhados com a realidade.
      */
     @Transactional
     public void excluir(Long id) {
@@ -147,8 +215,8 @@ public class VendaService {
             movimentacaoProdutoRepository.save(estorno);
         }
 
-        lancamentoFinanceiroRepository.findByOrigemAndOrigemId(OrigemLancamento.VENDA, venda.getId())
-                .ifPresent(lancamentoFinanceiroRepository::delete);
+        lancamentoFinanceiroRepository.deleteAll(
+                lancamentoFinanceiroRepository.findAllByOrigemAndOrigemId(OrigemLancamento.VENDA, venda.getId()));
 
         vendaRepository.delete(venda);
     }

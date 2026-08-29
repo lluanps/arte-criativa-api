@@ -1,5 +1,6 @@
 package br.com.artecriativa.api.vendas;
 
+import br.com.artecriativa.api.vendas.dto.ReagendarEntregaRequest;
 import br.com.artecriativa.api.vendas.dto.VendaRequest;
 import br.com.artecriativa.api.vendas.dto.VendaResponse;
 import jakarta.validation.Valid;
@@ -44,7 +45,19 @@ public class VendaController {
         return vendaService.listarPorCliente(clienteId).stream().map(VendaResponse::de).toList();
     }
 
-    /** Estorna estoque e remove o lançamento financeiro gerado — ver {@link VendaService#excluir}. */
+    /** Avança a encomenda pro próximo estágio de status — ver {@link VendaService#avancarStatus}. */
+    @PostMapping("/{id}/avancar-status")
+    public VendaResponse avancarStatus(@PathVariable Long id) {
+        return VendaResponse.de(vendaService.avancarStatus(id));
+    }
+
+    /** Reagenda a data de entrega combinada de uma encomenda. */
+    @PostMapping("/{id}/reagendar-entrega")
+    public VendaResponse reagendarEntrega(@PathVariable Long id, @Valid @RequestBody ReagendarEntregaRequest request) {
+        return VendaResponse.de(vendaService.reagendarEntrega(id, request.novaDataEntrega()));
+    }
+
+    /** Estorna estoque e remove o(s) lançamento(s) financeiro(s) gerado(s) — ver {@link VendaService#excluir}. */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void excluir(@PathVariable Long id) {
